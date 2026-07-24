@@ -1,16 +1,8 @@
-name: Backend CI (FastAPI & Pytest)
+name: Backend CI (Disabled)
 
+# Disabled automatic triggers to stop GitHub email notifications.
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
 
 jobs:
   backend-quality-gate:

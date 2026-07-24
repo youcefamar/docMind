@@ -1,16 +1,8 @@
-name: Frontend CI (Next.js 15)
+name: Frontend CI (Disabled)
 
+# Disabled automatic triggers to stop GitHub email notifications.
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
+  workflow_dispatch:
 
 jobs:
   frontend-quality-gate:

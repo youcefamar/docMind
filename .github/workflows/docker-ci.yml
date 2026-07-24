@@ -1,20 +1,8 @@
-name: Docker Container CI
+name: Docker Container CI (Disabled)
 
+# Disabled automatic triggers to stop GitHub email notifications.
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'docker-compose.yml'
-      - 'backend/Dockerfile'
-      - 'frontend/Dockerfile'
-      - '.github/workflows/docker-ci.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'docker-compose.yml'
-      - 'backend/Dockerfile'
-      - 'frontend/Dockerfile'
-      - '.github/workflows/docker-ci.yml'
+  workflow_dispatch:
 
 jobs:
   docker-quality-gate:

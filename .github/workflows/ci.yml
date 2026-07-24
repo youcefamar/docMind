@@ -1,0 +1,24 @@
+name: Main CI Orchestrator
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  summary-check:
+    name: Repository Verification & Quality Gate Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Project Structure
+        run: |
+          echo "Starting DocMind Full Repository Quality Verification..."
+          test -f README.md || exit 1
+          test -f docker-compose.yml || exit 1
+          test -d backend || exit 1
+          test -d frontend || exit 1
+          echo "Repository layout verified successfully!"

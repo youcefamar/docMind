@@ -1,62 +1,64 @@
 # Contributing to DocMind 🤝
 
-Thank you for your interest in contributing to **DocMind — Internal Knowledge Assistant**!
+Thank you for contributing to **DocMind — Internal Knowledge Assistant**!
 
 ---
 
-## 🚀 Getting Started
+## 🌿 Professional Branching Strategy
 
-1. **Fork & Clone** the repository:
-   ```bash
-   git clone https://github.com/your-org/docmind.git
-   cd docmind
-   ```
+We follow a clean, production-grade branching model:
 
-2. **Branching Strategy**:
-   Create a topic branch off `main`:
-   ```bash
-   git checkout -b feature/amazing-new-feature
-   # or
-   git checkout -b fix/issue-description
-   ```
+| Branch | Purpose | Protection Rules |
+|---|---|---|
+| `main` | Stable, production-ready release code | Protected. PR required, status checks must pass, no force push. |
+| `feature/...` | New features & enhancements (`feature/category-filter`) | Development topic branch. |
+| `fix/...` | Bug fixes (`fix/upload-timeout`) | Bugfix topic branch. |
+| `chore/...` | Maintenance, dependencies & refactoring | Maintenance topic branch. |
+| `docs/...` | Documentation & ADR updates | Docs topic branch. |
 
 ---
 
-## 🛠️ Development Guidelines
+## 🚦 Automated Quality Gates & CI
 
-### Frontend (Next.js 15)
-- Located in `frontend/`.
-- Use TypeScript strictly. Avoid using `any` unless absolutely required.
-- Maintain tailwind CSS design token consistency (dark mode glassmorphism theme).
-- Format code with Prettier before submitting.
+All pull requests automatically trigger GitHub Actions quality gate workflows:
 
-### Backend (FastAPI)
-- Located in `backend/`.
-- Follow PEP 8 guidelines and type hinting for all function parameters and response models.
-- Ensure all API routes are registered under `backend/routes/`.
-- Include Pydantic models for request/response validation.
+1. **Backend Quality Gate (`backend-ci.yml`)**:
+   - Code formatting & linting via `ruff check`
+   - Unit & integration tests via `pytest`
+   - Test coverage enforcement
+2. **Frontend Quality Gate (`frontend-ci.yml`)**:
+   - Production build validation (`npm run build`)
+   - TypeScript static type checking
+3. **Docker Quality Gate (`docker-ci.yml`)**:
+   - `docker compose config` syntax verification
+   - Multi-container `docker build` check
+
+AI agents and contributors are not allowed to merge code unless all quality gate checks pass.
 
 ---
 
-## 🧪 Testing
+## 📦 Dependabot Updates
 
-Before submitting a Pull Request, ensure:
-1. FastAPI backend starts cleanly:
-   ```bash
-   cd backend
-   pytest # or test via uvicorn main:app
-   ```
-2. Next.js application builds without errors:
-   ```bash
-   cd frontend
-   npm run build
-   ```
+Automated dependency updates are managed via `.github/dependabot.yml` on a weekly schedule for:
+- Python dependencies (`pip` in `/backend`)
+- Node.js dependencies (`npm` in `/frontend`)
+- GitHub Actions workflows (`/`)
 
 ---
 
 ## 📥 Submitting a Pull Request (PR)
 
-1. Ensure your commit messages are clear (e.g., `feat(rag): add multi-category search support`).
-2. Open a Pull Request targeting the `main` branch.
-3. Fill out the PR template in full.
-4. Request review from maintainers.
+1. Create a topic branch:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+2. Run local tests:
+   ```bash
+   # Backend tests
+   cd backend && pytest
+
+   # Frontend build test
+   cd frontend && npm run build
+   ```
+3. Open a Pull Request targeting `main` and complete the template in `.github/pull_request_template.md`:
+   - Explain **What changed**, **Why**, **How tested**, and state the **Risk level** (Low / Medium / High).

@@ -1,0 +1,43 @@
+name: Backend CI (FastAPI & Pytest)
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  backend-quality-gate:
+    name: Backend Linting, Testing & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'backend/requirements.txt'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest pytest-cov
+          pip install -r backend/requirements.txt
+
+      - name: Run Ruff Code Quality Lint
+        run: |
+          ruff check backend/
+
+      - name: Run Pytest Unit & Integration Tests
+        run: |
+          cd backend
+          pytest tests/ --cov=. --cov-report=term-missing --cov-fail-under=70

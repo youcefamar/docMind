@@ -1,0 +1,37 @@
+name: Docker Container CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'docker-compose.yml'
+      - 'backend/Dockerfile'
+      - 'frontend/Dockerfile'
+      - '.github/workflows/docker-ci.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'docker-compose.yml'
+      - 'backend/Dockerfile'
+      - 'frontend/Dockerfile'
+      - '.github/workflows/docker-ci.yml'
+
+jobs:
+  docker-quality-gate:
+    name: Validate Docker Compose & Image Builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml Syntax
+        run: |
+          docker compose config
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t docmind-backend:ci ./backend
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t docmind-frontend:ci ./frontend

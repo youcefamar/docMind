@@ -1,0 +1,25 @@
+# Node & Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+
+# Python & FastAPI
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*.pyc
+backend/venv/
+backend/.venv/
+backend/db/chroma/
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+
+# Operating System
+.DS_Store
+Thumbs.db

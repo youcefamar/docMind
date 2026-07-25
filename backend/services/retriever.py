@@ -1,50 +1,96 @@
 import os
 from typing import List, Dict, Any, Optional
-import chromadb
-from chromadb.config import Settings
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from pgvector.psycopg2 import register_vector
 
-CHROMA_DB_DIR = os.getenv("CHROMA_DB_DIR", os.path.join(os.path.dirname(__file__), "..", "db", "chroma"))
+# PostgreSQL Connection details from environment variables
+PG_HOST = os.getenv("POSTGRES_HOST", "localhost")
+PG_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
+PG_USER = os.getenv("POSTGRES_USER", "docmind")
+PG_PASSWORD = os.getenv("POSTGRES_PASSWORD", "docmind_secret")
+PG_DB = os.getenv("POSTGRES_DB", "docmind_db")
+PG_URL = os.getenv("DATABASE_URL", f"postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}")
 
 class VectorStoreService:
-    def __init__(self, db_path: str = CHROMA_DB_DIR):
-        os.makedirs(db_path, exist_ok=True)
-        self.client = chromadb.PersistentClient(
-            path=db_path,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        self.collection = self.client.get_or_create_collection(
-            name="docmind_knowledge_base",
-            metadata={"hnsw:space": "cosine"}
-        )
+    def __init__(self, connection_url: str = PG_URL):
+        self.connection_url = connection_url
+        self._init_db()
+
+    def _get_connection(self):
+        conn = psycopg2.connect(self.connection_url)
+        register_vector(conn)
+        return conn
+
+    def _init_db(self):
+        """
+        Initializes PostgreSQL pgvector extension and creates doc_chunks table schema.
+        """
+        try:
+            conn = psycopg2.connect(self.connection_url)
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                # 1. Enable pgvector extension
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                
+                # 2. Create chunks table with vector(384) column
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS doc_chunks (
+                        id VARCHAR(128) PRIMARY KEY,
+                        doc_id VARCHAR(128) NOT NULL,
+                        filename VARCHAR(255) NOT NULL,
+                        category VARCHAR(64) NOT NULL,
+                        page_number INT NOT NULL,
+                        total_pages INT NOT NULL,
+                        chunk_index INT NOT NULL,
+                        excerpt TEXT NOT NULL,
+                        embedding vector(384) NOT NULL,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    );
+                """)
+
+                # 3. Create index for fast vector search if not exists
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx 
+                    ON doc_chunks USING hnsw (embedding vector_cosine_ops);
+                """)
+            conn.close()
+            print("[VectorStore] Successfully initialized PostgreSQL pgvector table schema!")
+        except Exception as e:
+            print(f"[VectorStore] Notice: pgvector DB init pending connection ({e}). Will connect on demand.")
 
     def add_document_chunks(self, chunks: List[Dict[str, Any]], embeddings: List[List[float]]):
         """
-        Stores chunks and their computed embeddings into the Chroma vector DB.
+        Inserts document chunks and their 384d embeddings into pgvector.
         """
         if not chunks:
             return
 
-        ids = [c["id"] for c in chunks]
-        documents = [c["text"] for c in chunks]
-        metadatas = [
-            {
-                "doc_id": c["doc_id"],
-                "filename": c["filename"],
-                "category": c["category"],
-                "page_number": c["page_number"],
-                "total_pages": c["total_pages"],
-                "chunk_index": c["chunk_index"],
-                "created_at": c["created_at"]
-            }
-            for c in chunks
-        ]
-
-        self.collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas
-        )
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                for c, emb in zip(chunks, embeddings):
+                    cur.execute("""
+                        INSERT INTO doc_chunks (
+                            id, doc_id, filename, category, page_number, total_pages, chunk_index, excerpt, embedding
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO UPDATE SET
+                            excerpt = EXCLUDED.excerpt,
+                            embedding = EXCLUDED.embedding;
+                    """, (
+                        c["id"],
+                        c["doc_id"],
+                        c["filename"],
+                        c["category"],
+                        c["page_number"],
+                        c["total_pages"],
+                        c["chunk_index"],
+                        c["text"],
+                        emb
+                    ))
+            conn.commit()
+        finally:
+            conn.close()
 
     def search(
         self, 
@@ -53,77 +99,96 @@ class VectorStoreService:
         top_k: int = 4
     ) -> List[Dict[str, Any]]:
         """
-        Queries Chroma DB for the top_k nearest chunk neighbors.
+        Queries pgvector using cosine distance (<=>) for top_k nearest neighbors.
         """
-        where_filter = {}
-        if category and category.lower() != "all":
-            where_filter = {"category": category}
+        if not query_embedding or len(query_embedding) == 0:
+            return []
 
-        results = self.collection.query(
-            query_embeddings=query_embedding,
-            n_results=top_k,
-            where=where_filter if where_filter else None
-        )
-
+        emb_vector = query_embedding[0]
+        conn = self._get_connection()
         sources = []
-        if results and results.get("documents") and len(results["documents"]) > 0:
-            docs = results["documents"][0]
-            metas = results["metadatas"][0]
-            distances = results["distances"][0] if "distances" in results and results["distances"] else [0.0] * len(docs)
 
-            for doc_text, meta, dist in zip(docs, metas, distances):
-                # Cosine distance: similarity = 1 - distance
-                similarity = round(max(0.0, 1.0 - dist), 3)
-                sources.append({
-                    "doc_id": meta.get("doc_id"),
-                    "filename": meta.get("filename"),
-                    "category": meta.get("category"),
-                    "page_number": meta.get("page_number"),
-                    "total_pages": meta.get("total_pages"),
-                    "excerpt": doc_text,
-                    "similarity": similarity
-                })
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                if category and category.lower() != "all":
+                    query = """
+                        SELECT id, doc_id, filename, category, page_number, total_pages, excerpt,
+                               (1 - (embedding <=> %s::vector)) AS similarity
+                        FROM doc_chunks
+                        WHERE category = %s
+                        ORDER BY embedding <=> %s::vector
+                        LIMIT %s;
+                    """
+                    cur.execute(query, (emb_vector, category, emb_vector, top_k))
+                else:
+                    query = """
+                        SELECT id, doc_id, filename, category, page_number, total_pages, excerpt,
+                               (1 - (embedding <=> %s::vector)) AS similarity
+                        FROM doc_chunks
+                        ORDER BY embedding <=> %s::vector
+                        LIMIT %s;
+                    """
+                    cur.execute(query, (emb_vector, emb_vector, top_k))
+
+                rows = cur.fetchall()
+                for r in rows:
+                    sources.append({
+                        "doc_id": r["doc_id"],
+                        "filename": r["filename"],
+                        "category": r["category"],
+                        "page_number": r["page_number"],
+                        "total_pages": r["total_pages"],
+                        "excerpt": r["excerpt"],
+                        "similarity": round(float(r["similarity"]), 3)
+                    })
+        except Exception as e:
+            print(f"[pgvector Search Error] {e}")
+        finally:
+            conn.close()
 
         return sources
 
     def list_all_documents(self) -> List[Dict[str, Any]]:
         """
-        Lists summary of all unique documents currently stored in vector store.
+        Lists unique uploaded PDF documents from pgvector.
         """
-        all_items = self.collection.get()
-        if not all_items or not all_items.get("metadatas"):
-            return []
+        conn = self._get_connection()
+        summary = []
 
-        doc_summary = {}
-        for meta in all_items["metadatas"]:
-            doc_id = meta.get("doc_id")
-            if not doc_id:
-                continue
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                query = """
+                    SELECT doc_id AS id,
+                           filename,
+                           category,
+                           COUNT(*) AS chunk_count,
+                           MAX(total_pages) AS total_pages,
+                           MIN(created_at)::text AS created_at
+                    FROM doc_chunks
+                    GROUP BY doc_id, filename, category;
+                """
+                cur.execute(query)
+                summary = [dict(r) for r in cur.fetchall()]
+        except Exception as e:
+            print(f"[pgvector List Docs Error] {e}")
+        finally:
+            conn.close()
 
-            if doc_id not in doc_summary:
-                doc_summary[doc_id] = {
-                    "id": doc_id,
-                    "filename": meta.get("filename", "Unknown.pdf"),
-                    "category": meta.get("category", "General"),
-                    "chunk_count": 0,
-                    "total_pages": meta.get("total_pages", 1),
-                    "created_at": meta.get("created_at", "")
-                }
-            
-            doc_summary[doc_id]["chunk_count"] += 1
-            if meta.get("total_pages", 1) > doc_summary[doc_id]["total_pages"]:
-                doc_summary[doc_id]["total_pages"] = meta.get("total_pages", 1)
-
-        return list(doc_summary.values())
+        return summary
 
     def delete_document_by_id(self, doc_id: str) -> int:
         """
-        Deletes all chunks belonging to doc_id.
+        Deletes all chunks of doc_id from pgvector.
         """
-        all_items = self.collection.get(where={"doc_id": doc_id})
-        if not all_items or not all_items.get("ids"):
-            return 0
+        conn = self._get_connection()
+        deleted_count = 0
 
-        ids_to_delete = all_items["ids"]
-        self.collection.delete(ids=ids_to_delete)
-        return len(ids_to_delete)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM doc_chunks WHERE doc_id = %s;", (doc_id,))
+                deleted_count = cur.rowcount
+            conn.commit()
+        finally:
+            conn.close()
+
+        return deleted_count

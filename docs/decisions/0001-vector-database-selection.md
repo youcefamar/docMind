@@ -1,4 +1,4 @@
-# 1. Vector Database Selection: ChromaDB & pgvector
+# 1. Vector Database Selection: PostgreSQL with `pgvector` Extension
 
 - **Status**: Accepted
 - **Date**: 2026-07-25
@@ -8,35 +8,39 @@
 
 ## Context & Problem Statement
 
-DocMind requires an efficient, developer-friendly vector store to persist and query high-dimensional embeddings generated from enterprise PDF documents. The vector database must support cosine similarity search, metadata filtering (such as document category, filename, and page numbers), and zero-friction deployment.
+DocMind requires a high-performance vector database to store and query 384-dimensional vector embeddings generated from company PDF documents. The vector store must support cosine similarity search (`<=>` operator), metadata filtering (`category`, `filename`, `page_number`), and fit seamlessly into enterprise production infrastructure.
 
 ---
 
 ## Decision Drivers
 
-- **Ease of Setup & Development**: Minimal external infrastructure overhead for local development and notebook experimentation.
-- **Metadata Filtering**: Native support for filtering queries by category tags (`HR`, `Tech`, `Finance`).
-- **Persistence & Portability**: Ability to persist embeddings to local disk or Docker volume without complex cluster management.
-- **Production Path**: Simple upgrade path to enterprise PostgreSQL (`pgvector`) if required by infrastructure constraints.
-
----
-
-## Considered Options
-
-1. **ChromaDB (Selected for primary deployment)**
-2. **PostgreSQL with `pgvector` extension**
-3. **Pinecone / Qdrant (Cloud SaaS)**
+- **Enterprise Reliability**: Standard PostgreSQL with native vector capabilities (`pgvector`).
+- **Relational Integrity**: Allows linking PDF text chunks to relational tables and auditing metadata directly using SQL queries.
+- **HNSW Index Performance**: High-speed Cosine similarity indexing using `hnsw (embedding vector_cosine_ops)`.
 
 ---
 
 ## Decision Outcome
 
-**Chosen Option**: **ChromaDB** (with optional `pgvector` migration path).
+**Chosen Option**: **`pgvector` (PostgreSQL 16 extension)** via official `pgvector/pgvector:pg16` Docker image.
 
-### Positive Consequences
-- **Zero Configuration**: Runs in-process with Python via `chromadb.PersistentClient`, storing vector indices directly on disk in `backend/db/chroma`.
-- **Fast Similarity Filtering**: Built-in HNSW index with cosine distance metrics.
-- **Category Metadata Support**: Supports `where={"category": "HR"}` queries seamlessly out of the box.
+### Table Schema (`doc_chunks`)
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
 
-### Negative Consequences
-- For massive scale (>10M vectors), a dedicated PostgreSQL + `pgvector` instance or distributed vector database cluster may be preferred.
+CREATE TABLE IF NOT EXISTS doc_chunks (
+    id VARCHAR(128) PRIMARY KEY,
+    doc_id VARCHAR(128) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    category VARCHAR(64) NOT NULL,
+    page_number INT NOT NULL,
+    total_pages INT NOT NULL,
+    chunk_index INT NOT NULL,
+    excerpt TEXT NOT NULL,
+    embedding vector(384) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx 
+ON doc_chunks USING hnsw (embedding vector_cosine_ops);
+```

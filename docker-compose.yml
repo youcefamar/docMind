@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: docmind-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: docmind
+      POSTGRES_PASSWORD: docmind_secret
+      POSTGRES_DB: docmind_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docmind -d docmind_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -10,12 +28,17 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=docmind
+      - POSTGRES_PASSWORD=docmind_secret
+      - POSTGRES_DB=docmind_db
+      - GGUF_MODEL_PATH=/app/models/llama-3.1-8b-instruct.Q4_K_M.gguf
       - GROQ_API_KEY=${GROQ_API_KEY}
-      - GROQ_MODEL=${GROQ_MODEL:-llama-3.1-8b-instant}
-      - CHROMA_DB_DIR=/app/db/chroma
       - FRONTEND_URL=http://localhost:3000
-    volumes:
-      - chroma_data:/app/db/chroma
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -38,4 +61,4 @@ services:
       - backend
 
 volumes:
-  chroma_data:
+  pgvector_data:

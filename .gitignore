@@ -8,9 +8,9 @@ frontend/.vercel/
 backend/__pycache__/
 backend/*/__pycache__/
 backend/*.pyc
-backend/venv/
 backend/.venv/
-backend/db/chroma/
+backend/venv/
+backend/models/*.gguf
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 

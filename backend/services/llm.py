@@ -1,7 +1,7 @@
 import os
+import json
 from typing import List, Dict, Any, Tuple
 
-# Try loading local llama-cpp-python for GGUF execution
 try:
     from llama_cpp import Llama
     HAS_LLAMA_CPP = True
@@ -9,7 +9,6 @@ except ImportError:
     Llama = None
     HAS_LLAMA_CPP = False
 
-# Try Groq API as secondary provider if configured
 try:
     from groq import Groq
     HAS_GROQ = True
@@ -17,32 +16,20 @@ except ImportError:
     Groq = None
     HAS_GROQ = False
 
-GGUF_MODEL_PATH = os.getenv("GGUF_MODEL_PATH", os.path.join(os.path.dirname(__file__), "..", "models", "llama-3.1-8b-instruct.Q4_K_M.gguf"))
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
+CONFIG_PATH = os.path.join(MODELS_DIR, "models_config.json")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
 class LLMService:
-    def __init__(self, model_path: str = GGUF_MODEL_PATH):
-        self.model_path = model_path
+    def __init__(self, model_path: Optional[str] = None):
+        self.model_path = model_path or self._resolve_model_path()
         self.local_llm = None
         self.groq_client = None
 
-        # 1. Initialize Local GGUF Model if file exists and llama-cpp-python is available
-        if HAS_LLAMA_CPP and os.path.exists(self.model_path):
-            print(f"[LLM] Loading local GGUF model from: {self.model_path}")
-            try:
-                self.local_llm = Llama(
-                    model_path=self.model_path,
-                    n_ctx=4096,
-                    n_threads=os.cpu_count() or 4,
-                    verbose=False
-                )
-                print("[LLM] Local GGUF model loaded successfully!")
-            except Exception as e:
-                print(f"[LLM] Error loading local GGUF model: {e}")
-                self.local_llm = None
-        
-        # 2. Fallback to Groq API if local GGUF is not found and Groq API key is present
+        self._init_local_model()
+
+        # Fallback Groq client setup
         if not self.local_llm and HAS_GROQ and GROQ_API_KEY:
             try:
                 self.groq_client = Groq(api_key=GROQ_API_KEY)
@@ -50,16 +37,50 @@ class LLMService:
             except Exception as e:
                 print(f"[LLM] Error initializing Groq client: {e}")
 
+    def _resolve_model_path(self) -> str:
+        """Resolves active GGUF model path from .env or models_config.json."""
+        env_path = os.getenv("GGUF_MODEL_PATH")
+        if env_path and os.path.exists(env_path):
+            return env_path
+
+        if os.path.exists(CONFIG_PATH):
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    active_id = config.get("active_model_id")
+                    for m in config.get("models", []):
+                        if m["id"] == active_id:
+                            target_file = os.path.join(MODELS_DIR, m["filename"])
+                            if os.path.exists(target_file):
+                                return target_file
+            except Exception as e:
+                print(f"[LLM] Notice: Error reading models_config.json: {e}")
+
+        # Default fallback path
+        return os.path.join(MODELS_DIR, "llama-3.1-8b-instruct.Q4_K_M.gguf")
+
+    def _init_local_model(self):
+        """Attempts loading local GGUF weights into llama-cpp-python."""
+        self.local_llm = None
+        if HAS_LLAMA_CPP and os.path.exists(self.model_path):
+            print(f"[LLM] Loading active local GGUF model from: {self.model_path}")
+            try:
+                self.local_llm = Llama(
+                    model_path=self.model_path,
+                    n_ctx=4096,
+                    n_threads=os.cpu_count() or 4,
+                    verbose=False
+                )
+                print("[LLM] Local GGUF model loaded successfully into memory!")
+            except Exception as e:
+                print(f"[LLM] Error loading local GGUF model: {e}")
+
     def generate_answer(
         self, 
         question: str, 
         sources: List[Dict[str, Any]], 
         chat_history: List[Dict[str, str]] = None
     ) -> Tuple[str, float, str]:
-        """
-        Generates grounded answer using local .gguf model or Groq LLM.
-        Returns: (answer_text, confidence_score, confidence_label)
-        """
         if not sources or len(sources) == 0:
             return (
                 "I couldn't find any relevant information in the uploaded documents to answer your question.",
@@ -69,7 +90,6 @@ class LLMService:
 
         max_similarity = max((s.get("similarity", 0.0) for s in sources), default=0.0)
 
-        # Build context block from sources
         context_blocks = []
         for idx, src in enumerate(sources, start=1):
             context_blocks.append(
@@ -105,7 +125,6 @@ class LLMService:
 
         answer = ""
 
-        # Option A: Local GGUF execution via llama-cpp-python
         if self.local_llm:
             try:
                 response = self.local_llm.create_chat_completion(
@@ -118,7 +137,6 @@ class LLMService:
                 print(f"[LLM] Local GGUF generation error: {e}")
                 answer = self._generate_fallback_answer(question, sources)
 
-        # Option B: Groq API execution
         elif self.groq_client:
             try:
                 response = self.groq_client.chat.completions.create(
@@ -131,8 +149,6 @@ class LLMService:
             except Exception as e:
                 print(f"[LLM] Groq API call error: {e}")
                 answer = self._generate_fallback_answer(question, sources)
-        
-        # Option C: Direct Context Fallback
         else:
             answer = self._generate_fallback_answer(question, sources)
 
@@ -156,5 +172,5 @@ class LLMService:
         return (
             f"Based on **{first_src['filename']}** (Page {first_src['page_number']}):\n\n"
             f"\"{first_src['excerpt'][:350]}...\"\n\n"
-            f"*(Note: Place your local `.gguf` model file in `backend/models/` or set `GGUF_MODEL_PATH` in .env to enable full local LLM synthesis).* "
+            f"*(Note: Download a local GGUF model via 'POST /api/models/download' or place a .gguf model in backend/models/ to enable full local LLM synthesis).* "
         )

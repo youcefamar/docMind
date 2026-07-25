@@ -8,23 +8,18 @@ load_dotenv()
 
 from routes.chat import router as chat_router
 from routes.documents import router as docs_router
+from routes.models import router as models_router
 
 app = FastAPI(
     title="DocMind API",
-    description="Internal Knowledge Assistant API powered by FastAPI, ChromaDB & Groq (Llama 3.1 8B)",
+    description="Internal Knowledge Assistant API powered by FastAPI, pgvector & Local GGUF LLMs",
     version="1.0.0"
 )
 
 # CORS setup for Next.js frontend
-allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    os.getenv("FRONTEND_URL", "*")
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permissive for local dev / Docker setup
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +28,7 @@ app.add_middleware(
 # Include routes
 app.include_router(chat_router)
 app.include_router(docs_router)
+app.include_router(models_router)
 
 @app.get("/", tags=["Health"])
 async def root():

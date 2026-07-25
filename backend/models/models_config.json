@@ -1,0 +1,32 @@
+{
+  "active_model_id": "llama-3.1-8b-instruct",
+  "models": [
+    {
+      "id": "llama-3.1-8b-instruct",
+      "name": "Meta Llama 3.1 8B Instruct (Q4_K_M)",
+      "filename": "llama-3.1-8b-instruct.Q4_K_M.gguf",
+      "url": "https://huggingface.co/lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+      "size_mb": 4900,
+      "recommended": true,
+      "description": "Recommended enterprise general model for document RAG and citation grounding."
+    },
+    {
+      "id": "qwen-2.5-7b-instruct",
+      "name": "Qwen 2.5 7B Instruct (Q4_K_M)",
+      "filename": "qwen2.5-7b-instruct-q4_k_m.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF/resolve/main/qwen2.5-7b-instruct-q4_k_m.gguf",
+      "size_mb": 4700,
+      "recommended": false,
+      "description": "Fast reasoning and multilingual capabilities for global document search."
+    },
+    {
+      "id": "mistral-7b-instruct-v0.3",
+      "name": "Mistral 7B Instruct v0.3 (Q4_K_M)",
+      "filename": "mistral-7b-instruct-v0.3.Q4_K_M.gguf",
+      "url": "https://huggingface.co/maziyarpanahi/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
+      "size_mb": 4370,
+      "recommended": false,
+      "description": "High performance instruction-following model with 32k context window."
+    }
+  ]
+}

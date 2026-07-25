@@ -9,7 +9,7 @@ function Show-Help {
     Write-Host "Usage: .\run.ps1 [Option]"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  setup, -i            First-timer setup: installs Python/Node dependencies & copies .env"
+    Write-Host "  setup, -i            First-timer setup: upgrades pip, installs Python/Node dependencies & copies .env"
     Write-Host "  dev, -s (default)    Starts pgvector in Docker + launches Backend and Frontend locally"
     Write-Host "  all, -a              Starts FastAPI backend and Next.js frontend locally"
     Write-Host "  backend, -b          Starts FastAPI backend only (Port 8000)"
@@ -27,11 +27,15 @@ switch ($Mode.ToLower()) {
             Write-Host "Created .env file." -ForegroundColor Cyan
         }
         
-        Write-Host "Installing Backend Python dependencies (.venv)..." -ForegroundColor Cyan
+        Write-Host "Setting up Python virtual environment (.venv)..." -ForegroundColor Cyan
         Set-Location backend
         if (-not (Test-Path ".venv")) { python -m venv .venv }
         .\.venv\Scripts\activate.ps1
-        pip install --upgrade pip
+        
+        Write-Host "Upgrading pip to latest version..." -ForegroundColor Green
+        python -m pip install --upgrade pip
+        
+        Write-Host "Installing Backend Python dependencies..." -ForegroundColor Cyan
         pip install -r requirements.txt
         Set-Location ..
 

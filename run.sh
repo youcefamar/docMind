@@ -49,13 +49,17 @@ run_setup() {
     fi
 
     # 2. Python backend environment & dependencies
-    echo -e "${CYAN}Setting up Python virtual environment (.venv) and backend dependencies...${NC}"
+    echo -e "${CYAN}Setting up Python virtual environment (.venv)...${NC}"
     cd backend
     if [ ! -d ".venv" ]; then
         python3 -m venv .venv 2>/dev/null || python -m venv .venv 2>/dev/null || true
     fi
     source .venv/bin/activate 2>/dev/null || source .venv/Scripts/activate 2>/dev/null || true
-    pip install --upgrade pip
+    
+    echo -e "${GREEN}Upgrading pip to latest version before installing libraries...${NC}"
+    python -m pip install --upgrade pip
+
+    echo -e "${CYAN}Installing backend requirements...${NC}"
     pip install -r requirements.txt
     cd ..
 

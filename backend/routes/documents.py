@@ -2,14 +2,16 @@ from typing import List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 
-from services.embedder import PDFProcessor, EmbeddingService
+from services.embedder import DocumentProcessor, EmbeddingService
 from services.retriever import VectorStoreService
 
 router = APIRouter(prefix="/api", tags=["Documents"])
 
-pdf_processor = PDFProcessor()
+doc_processor = DocumentProcessor()
 embedder_service = EmbeddingService()
 retriever_service = VectorStoreService()
+
+ALLOWED_EXTENSIONS = ('.pdf', '.docx', '.xlsx', '.xls', '.pptx', '.txt', '.md')
 
 class DocumentSummary(BaseModel):
     id: str
@@ -33,8 +35,8 @@ async def upload_documents(
     category: str = Form("General")
 ):
     """
-    Accepts one or multiple PDF documents, extracts text page-by-page,
-    chunks, embeds, and stores in ChromaDB vector store.
+    Accepts PDF, DOCX, XLSX, PPTX, or TXT documents, extracts text,
+    chunks, embeds, and stores in PostgreSQL pgvector.
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files provided.")
@@ -42,15 +44,16 @@ async def upload_documents(
     responses = []
 
     for file in files:
-        if not file.filename.lower().endswith(".pdf"):
+        ext = file.filename.lower()
+        if not ext.endswith(ALLOWED_EXTENSIONS):
             raise HTTPException(
                 status_code=400, 
-                detail=f"Invalid file type for '{file.filename}'. Only PDF files are supported."
+                detail=f"Unsupported file type for '{file.filename}'. Supported formats: PDF, DOCX, XLSX, PPTX, TXT, MD."
             )
 
         try:
             content = await file.read()
-            chunks = pdf_processor.extract_chunks_from_pdf(
+            chunks = doc_processor.extract_chunks(
                 file_bytes=content,
                 filename=file.filename,
                 category=category
@@ -59,14 +62,11 @@ async def upload_documents(
             if not chunks:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Could not extract readable text from PDF '{file.filename}'."
+                    detail=f"Could not extract readable text from document '{file.filename}'."
                 )
 
-            # Compute embeddings for extracted text chunks
             texts = [c["text"] for c in chunks]
             embeddings = embedder_service.generate_embeddings(texts)
-
-            # Store in ChromaDB
             retriever_service.add_document_chunks(chunks, embeddings)
 
             doc_id = chunks[0]["doc_id"]
@@ -95,9 +95,6 @@ async def upload_documents(
 
 @router.get("/docs", response_model=List[DocumentSummary])
 async def get_documents():
-    """
-    Returns a catalog of all uploaded PDF documents and their metadata.
-    """
     try:
         documents = retriever_service.list_all_documents()
         return [DocumentSummary(**doc) for doc in documents]
@@ -108,9 +105,6 @@ async def get_documents():
 
 @router.delete("/doc/{doc_id}")
 async def delete_document(doc_id: str):
-    """
-    Deletes document and all associated embeddings from the Chroma vector store.
-    """
     try:
         deleted_count = retriever_service.delete_document_by_id(doc_id)
         if deleted_count == 0:

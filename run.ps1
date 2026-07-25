@@ -11,6 +11,7 @@ function Show-Help {
     Write-Host "Options:"
     Write-Host "  setup, -i            First-timer setup: upgrades pip, installs Python/Node dependencies & copies .env"
     Write-Host "  dev, -s (default)    Starts pgvector in Docker + launches Backend and Frontend locally"
+    Write-Host "  ingest, -g           Batch ingest all PDF files in data/documents/ into pgvector"
     Write-Host "  all, -a              Starts FastAPI backend and Next.js frontend locally"
     Write-Host "  backend, -b          Starts FastAPI backend only (Port 8000)"
     Write-Host "  frontend, -f         Starts Next.js frontend only (Port 3000)"
@@ -58,6 +59,11 @@ switch ($Mode.ToLower()) {
         Start-Sleep -Seconds 3
         Set-Location frontend
         npm run dev
+    }
+    { $_ -in "ingest", "-g" } {
+        Write-Host "📄 Batch Ingesting PDFs from data/documents/ into pgvector..." -ForegroundColor Green
+        if (Test-Path "backend\.venv\Scripts\activate.ps1") { .\.venv\Scripts\activate.ps1 }
+        python backend/scripts/ingest_documents.py
     }
     { $_ -in "all", "-a" } {
         Write-Host "⚡ Starting Local Backend + Frontend..." -ForegroundColor Green

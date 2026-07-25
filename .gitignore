@@ -14,6 +14,10 @@ backend/models/*.gguf
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 
+# Data & Document Storage (Ignored to prevent committing company documents)
+data/
+data/*
+
 # Environment files
 .env
 .env.local

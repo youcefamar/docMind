@@ -5,6 +5,7 @@
 # Usage:
 #   ./run.sh setup        # First-timer setup: install packages & setup environment
 #   ./run.sh dev          # (Recommended) Starts pgvector in Docker + Backend & Frontend locally
+#   ./run.sh ingest       # Ingests & vectorizes all PDFs from data/documents/ into pgvector
 #   ./run.sh all          # Starts both Backend and Frontend locally
 #   ./run.sh backend      # Starts FastAPI backend only
 #   ./run.sh frontend     # Starts Next.js frontend only
@@ -28,6 +29,7 @@ show_help() {
     echo "Options:"
     echo "  setup, -i            First-timer setup: installs Python/Node dependencies, copies .env & prepares GGUF model"
     echo "  dev, -s              Starts pgvector in Docker + launches Backend and Frontend locally"
+    echo "  ingest, -g           Batch ingest all PDF files in data/documents/ into pgvector"
     echo "  all, -a, (default)   Starts FastAPI backend and Next.js frontend locally"
     echo "  backend, -b          Starts FastAPI backend only (Port 8000)"
     echo "  frontend, -f         Starts Next.js frontend only (Port 3000)"
@@ -40,7 +42,6 @@ show_help() {
 run_setup() {
     echo -e "${GREEN}🛠️ Running First-Timer Setup for DocMind...${NC}"
 
-    # 1. Environment file setup
     if [ ! -f ".env" ]; then
         echo -e "${CYAN}Creating .env file from .env.example...${NC}"
         cp .env.example .env
@@ -48,7 +49,6 @@ run_setup() {
         echo -e "${YELLOW}.env file already exists. Skipping copy.${NC}"
     fi
 
-    # 2. Python backend environment & dependencies
     echo -e "${CYAN}Setting up Python virtual environment (.venv)...${NC}"
     cd backend
     if [ ! -d ".venv" ]; then
@@ -63,13 +63,11 @@ run_setup() {
     pip install -r requirements.txt
     cd ..
 
-    # 3. Frontend dependencies
     echo -e "${CYAN}Installing Frontend Node.js dependencies...${NC}"
     cd frontend
     npm install
     cd ..
 
-    # 4. Optional GGUF Model Download prompt
     echo -e "${YELLOW}Do you want to download the local Llama 3.1 8B GGUF model weights (~4.9GB)? [y/N]${NC}"
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -79,11 +77,18 @@ run_setup() {
         echo -e "${YELLOW}Skipping GGUF download. You can download later via API 'POST /api/models/download' or script.${NC}"
     fi
 
-    # 5. Start pgvector container in Docker
     echo -e "${GREEN}Starting PostgreSQL + pgvector Docker container...${NC}"
     docker-compose up -d postgres
 
     echo -e "${GREEN}✅ Setup complete! Run './run.sh dev' to start local development.${NC}"
+}
+
+run_ingest() {
+    echo -e "${GREEN}📄 Batch Ingesting PDFs from data/documents/ into pgvector...${NC}"
+    if [ -d "backend/.venv" ]; then
+        source backend/.venv/bin/activate 2>/dev/null || source backend/.venv/Scripts/activate 2>/dev/null || true
+    fi
+    python backend/scripts/ingest_documents.py
 }
 
 start_postgres_docker() {
@@ -159,6 +164,9 @@ case "$MODE" in
         ;;
     dev|hybrid|-s)
         start_dev_hybrid
+        ;;
+    ingest|-g)
+        run_ingest
         ;;
     all|-a)
         start_all

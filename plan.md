@@ -1,317 +1,381 @@
-# DocMind: Offline Multilingual RAG Research and Implementation Plan
+# DocMind: Research v1 Closeout and Product Integration Plan
 
-## 1. Project decision
+## 1. Final direction
 
-DocMind will be developed as a CV-quality personal project for a small company that wants to search internal documents without sending data to the internet or to a hosted LLM.
+DocMind is a CV-quality, local-first Retrieval-Augmented Generation application for small companies that need to search internal documents without sending their data to an external LLM service.
 
-The project has two deliberately separate tracks:
+The project will not begin a separate “research v2” phase now. The roadmap is:
 
-1. **Research track:** build a reproducible Kaggle benchmark to compare ingestion strategies, multilingual embeddings, rerankers, and small open-weight local LLMs on messy documents.
-2. **Product track:** integrate the best validated combination into this repository as an offline document-ingestion and question-answering platform.
+```text
+DOCMIND RESEARCH v1
+        │
+        ↓
+Freeze the current winning stack
+        │
+        ├── Run the locked 12-question TEST once
+        └── Run the existing 4 no-answer questions
+        │
+        ↓
+Close research v1
+        │
+        ↓
+PRODUCT INTEGRATION
+        │
+        ├── production extraction interfaces
+        ├── embedding and indexing services
+        ├── Fast retrieval mode
+        ├── Quality retrieval mode
+        ├── local Qwen generation
+        ├── validated citations
+        └── API and UI integration
+        │
+        ↓
+FUTURE FEATURE WORK
+        │
+        ├── XLSX and table QA
+        ├── OCR and scanned documents
+        ├── harder/larger gold benchmark
+        ├── Arabic support
+        └── feature-specific validation
+```
 
-The benchmark winner must satisfy both quality and laptop constraints. A model that scores well but cannot run acceptably on the target machine is not a winner.
+The priority is to finish the frozen v1 evaluation and build the product. New model searches, benchmark expansion, OCR, tables, and Arabic must not block the first application integration.
 
-## 2. Scope and constraints
+## 2. Target deployment constraints
 
-### Target machine
+### Target laptop
 
 - CPU: Intel i7 11th generation, 4 cores
 - Memory: 20 GB RAM
 - GPU: none
-- LLM model budget: approximately 6 GB maximum on disk/RAM
-- Inference: local CPU inference
-- Internet: unavailable during normal operation
-- Model and package downloads: performed before deployment, then transferred/cached locally
+- Local generator budget: approximately 6 GB maximum
+- Normal operation: fully offline
+- Models and packages: downloaded before deployment and cached or transferred locally
 
-### Languages
+### Initial product assumptions
 
-- English
-- French
-- Arabic
-- Mixed-language and code-switched questions should be treated as an evaluation target, not assumed to work automatically.
+- The application runs on one trusted laptop or local shared server.
+- Anyone with access to that machine can initially use the chatbot.
+- Product v1 focuses on the file types validated by research v1: PDF, PPTX, and DOCX.
+- Simple TXT and Markdown ingestion may be added during integration if it does not delay the measured core pipeline.
+- XLSX/table reasoning, OCR/scans, Arabic, direct database querying, and fine-grained access control are future features.
+- Product v1 must not claim support for capabilities that have not been validated.
 
-### Initial product scope
+### Local knowledge architecture
 
-- Upload and index text-oriented company files:
-  - PDF
-  - DOCX
-  - PPTX
-  - XLSX
-  - TXT
-  - Markdown
-- Ask questions over the indexed knowledge base.
-- Return an answer with source filename, location metadata, excerpt, and a citation.
-- Support adding new files and replacing/re-indexing files.
-- Run entirely on a local computer or a shared local server.
-- Initially assume that anyone who can access the trusted machine may use the chatbot.
-- Defer department-level permissions and direct relational-database querying until the document chatbot is reliable.
+A shared folder is not itself the database. The local product will separate:
 
-### Important terminology correction
+- original file storage;
+- extracted document blocks and metadata;
+- dense and lexical search indexes;
+- the local LLM runtime;
+- the API and web application.
 
-The first version should not describe a shared folder as “the database.” The local server should provide four separate responsibilities:
+Direct SQL database access is not part of product v1. A future connector must use read-only database roles and a separate security design.
 
-- an original-file store;
-- an extracted/normalized document store;
-- a vector and lexical search index;
-- the API and local web application.
+## 3. Research v1 history
 
-Later, a read-only database connector can be added as a separate source type. Allowing an LLM to write arbitrary SQL or access business tables is a security project of its own and is not required to prove the document RAG idea.
+Research v1 has already completed the major model-selection work. This history must be preserved in the research report and portfolio documentation.
 
-## 3. Success criteria
+### Completed corpus and evaluation work
 
-The final CV version should demonstrate measurable engineering decisions, not only a chat screen.
+- [x] Cleaned a 44-file company-like corpus.
+- [x] Extracted PDF content page by page.
+- [x] Extracted PPTX content slide by slide.
+- [x] Extracted DOCX paragraphs and tables.
+- [x] Produced stable extraction and chunk artifacts.
+- [x] Compared small, medium, and large token-aware chunks.
+- [x] Built DEV and TEST gold-evidence splits.
+- [x] Added evidence-unit-aware retrieval metrics.
+- [x] Identified and corrected multi-evidence fragmentation cases.
 
-### Retrieval quality
+### Completed retrieval work
 
-- Recall@k and MRR/nDCG for English, French, Arabic, and mixed-language queries.
-- Retrieval performance with and without lexical search.
-- Retrieval performance with and without reranking.
-- Table-aware and page-aware evidence retrieval.
+- [x] Compared BM25 sparse retrieval.
+- [x] Compared dense retrieval across BGE-M3, multilingual-E5-large, and Qwen3-Embedding-0.6B.
+- [x] Compared dense-only and Dense + BM25 hybrid retrieval.
+- [x] Used Reciprocal Rank Fusion for hybrid results.
+- [x] Evaluated `BAAI/bge-reranker-v2-m3`.
+- [x] Measured the trade-off between first-rank quality and complete-evidence preservation.
+- [x] Selected Qwen3-Embedding-0.6B as the strongest tested DEV embedding.
+- [x] Selected medium chunks of approximately 320 tokens with 48-token overlap.
+- [x] Selected a quality-oriented hybrid and reranked retrieval profile.
+- [x] Retained dense-only retrieval as the simpler profile.
 
-### Answer quality
+### Completed generation work
 
-- Citation correctness: cited chunks actually support the answer.
-- Citation completeness: important claims have supporting citations.
-- Groundedness/hallucination rate.
-- Correct “I do not know” behavior when evidence is absent.
-- Cross-language answer quality and language preservation.
+- [x] Froze retrieved contexts before comparing generators.
+- [x] Evaluated Qwen3-4B-Instruct-2507.
+- [x] Evaluated Phi-4-mini.
+- [x] Evaluated Granite-3.3-2B.
+- [x] Evaluated xLAM-7B.
+- [x] Compared correctness proxies, groundedness, citations, language behavior, latency, throughput, and observed GPU memory.
+- [x] Selected Qwen3-4B as the current DEV quality winner.
+- [x] Selected Phi-4-mini as the current DEV efficiency alternative.
 
-### System quality
+### Current DEV findings
 
-- Indexing success rate by file type.
-- OCR success rate on scanned pages.
-- Query p50/p95 latency on the laptop.
-- Peak RAM and model/index disk size.
-- Cold-start and warm-start behavior.
-- Repeatable offline setup.
+- `Qwen/Qwen3-Embedding-0.6B` was the strongest tested embedding on this corpus.
+- Medium chunks around 320 tokens with 48-token overlap were preferred.
+- Dense + BM25 + RRF + BGE reranking was selected as the quality-oriented retrieval path.
+- The selected hybrid and reranked configuration achieved `CompleteEvidence@5 = 1.0000` on the 46-question DEV retrieval benchmark.
+- `Qwen/Qwen3-4B-Instruct-2507` was the strongest tested generator.
+- Qwen3-4B achieved an automatic DEV quality score of `0.7173`.
+- Qwen3-4B won 34 of 46 DEV generation questions.
+- Phi-4-mini was the efficiency-oriented alternative.
 
-The project should record these metrics in versioned JSON/CSV artifacts so the README can state concrete results.
+These are corpus-conditional DEV findings, not universal claims.
 
-## 4. Research track: Kaggle benchmark
+## 4. Frozen research v1 configuration
 
-### 4.1 Build the benchmark before choosing the final model
-
-Do not begin by fine-tuning an LLM. First establish a baseline and a test harness:
-
-1. Parse and normalize documents.
-2. Create chunks with stable metadata.
-3. Retrieve evidence using a simple dense baseline.
-4. Generate an answer using a small local model or a deterministic extractive baseline.
-5. Score retrieval, citations, answer grounding, latency, and memory.
-
-This prevents a better-looking answer from hiding a broken retriever.
-
-### 4.2 Dataset families
-
-Use public datasets as controlled stress tests, then add a small private-like corpus created from permitted documents.
-
-#### Layout and extraction
-
-- DocLayNet for multi-column pages, headers, footers, tables, figures, and section structure.
-- PubLayNet or DocBank as an easier layout baseline.
-- FUNSD and SROIE for forms and OCR-noisy scans.
-- A small hand-made set of rotated, low-resolution, image-only, and password-protected PDFs.
-
-#### Tables and office documents
-
-- TAT-QA and FinQA for prose plus table reasoning.
-- WikiTableQuestions for less-structured tables.
-- Hand-created DOCX, PPTX, XLSX, TXT, and Markdown fixtures with repeated headings, merged cells, bullets, and notes.
-
-#### Multilingual retrieval
-
-- MIRACL subsets for English, French, and Arabic passage retrieval.
-- NoMIRACL-style robustness tests for retrieval errors and unsupported questions.
-- A small mixed-language set where the question language differs from the document language.
-- Synthetic code-switching only as an additional stress test, clearly labelled as synthetic.
-
-#### Enterprise-like questions
-
-- Multi-document questions requiring evidence from more than one file.
-- Ambiguous questions with several similarly named documents.
-- Unanswerable questions.
-- Queries containing spelling mistakes, abbreviations, Arabic normalization differences, and French/English mixing.
-
-Each dataset must have a license note and a small downloadable manifest. Kaggle notebooks must not depend on an internet call at evaluation time.
-
-### 4.3 Ingestion variants to compare
-
-Compare strategies using the same benchmark questions:
-
-1. Plain text extraction with fixed-size chunks.
-2. Page/section-aware chunks.
-3. Structure-aware chunks that retain headings.
-4. Parent-child retrieval: small searchable child chunks linked to larger answer context.
-5. Table-to-Markdown representation.
-6. Table-row-to-natural-language representation.
-7. OCR text only.
-8. OCR plus layout-aware extraction where feasible.
-
-Every chunk must retain:
-
-- document ID and version;
-- source filename;
-- file type;
-- page, slide, sheet, or table location;
-- heading path;
-- language;
-- chunk index;
-- extraction method;
-- text hash;
-- timestamps and processing status.
-
-### 4.4 Embedding candidates
-
-Evaluate a small, practical candidate set instead of every model on Hugging Face:
-
-- `intfloat/multilingual-e5-small` as a fast CPU baseline.
-- `BAAI/bge-m3` as a larger multilingual and hybrid-retrieval candidate.
-- One current multilingual E5/GTE-sized alternative selected by the benchmark date.
-- Optionally a smaller Arabic-focused model, only if Arabic results justify the added pipeline complexity.
-
-All candidates must be evaluated in the same dimensions:
-
-- language-specific retrieval;
-- cross-language retrieval;
-- long/chunked document behavior;
-- CPU indexing throughput;
-- query latency;
-- RAM and disk footprint;
-- license suitability for a portfolio/company demonstration.
-
-Do not run separate embedding models per language by default. Prefer one shared multilingual embedding space unless experiments show a clear, maintainable gain from a language router.
-
-### 4.5 Reranker candidates
-
-Use reranking only after first-stage retrieval:
-
-- Start with `BAAI/bge-reranker-v2-m3` as a multilingual candidate.
-- Compare against one smaller CPU-friendly reranker or no reranker.
-- Measure whether the quality gain justifies laptop latency.
-
-The planned production default is hybrid retrieval plus optional reranking, not mandatory reranking for every query.
-
-### 4.6 Local LLM candidates
-
-The final generator must be open-weight, downloaded from Hugging Face before deployment, and runnable locally as a quantized model.
-
-Start with models in the 1.5B–4B class and quantize to GGUF or another CPU-friendly format. Candidate examples include:
-
-- Qwen3 4B instruct, with thinking disabled for normal RAG responses.
-- A smaller Qwen instruct model as the speed baseline.
-- Gemma 3 4B IT if its license and Arabic/French evaluation are acceptable.
-- One multilingual-focused model only if its license permits the intended use; Aya Expanse is a useful research comparison but its non-commercial research license should not be treated as a company-deployment default.
-
-The benchmark must compare:
-
-- grounded answer accuracy;
-- Arabic, French, and English response quality;
-- citation formatting reliability;
-- refusal/unknown behavior;
-- tokens per second and time to first token;
-- peak RAM;
-- prompt/context length behavior.
-
-The generator should be loaded through `llama.cpp`/`llama-cpp-python` or an equivalent offline runtime. Hosted Groq inference must not be required by the finished offline mode.
-
-### 4.7 Research experiment matrix
-
-Every experiment should be represented by a config rather than hard-coded notebook cells:
+No additional embedding models, rerankers, chunk configurations, or generative LLMs will be tested during research v1.
 
 ```yaml
-embedding_model: intfloat/multilingual-e5-small
-reranker_model: null
-chunking_strategy: structure_parent_child
-retrieval_mode: dense
-llm_model: qwen3-4b-instruct-q4
-top_k: 8
-rerank_k: 20
-language: ar
+retrieval:
+  embedding: Qwen/Qwen3-Embedding-0.6B
+  chunk_size_tokens: 320
+  chunk_overlap_tokens: 48
+  dense: true
+  bm25: true
+  fusion: rrf
+  reranker: BAAI/bge-reranker-v2-m3
+  rerank_top_n: 30
+  final_k: 5
+
+generation:
+  model: Qwen/Qwen3-4B-Instruct-2507
+  quantization: 4bit
+  citations: inline
+  language_policy: same_as_question
 ```
 
-Save for every run:
+This configuration is frozen for the remaining TEST and no-answer evaluations. Weaknesses discovered after freezing must be recorded as limitations rather than fixed by retuning the experiment.
 
-- git commit or notebook version;
-- model names and exact revisions;
-- dataset manifest and split;
-- chunking parameters;
-- metrics;
-- latency and memory;
-- representative failure examples.
+## 5. Remaining research v1 tasks
 
-### 4.8 Research gates
+Only the following tasks remain before research v1 is closed.
 
-Use staged elimination:
+### R4.1 — locked 12-question TEST
 
-1. **Extraction gate:** reject strategies that lose page/sheet/slide content or fail common formats.
-2. **Retrieval gate:** keep only candidates that meet a minimum recall target in all three languages.
-3. **Grounding gate:** reject generators that frequently invent unsupported answers.
-4. **Resource gate:** reject models that exceed the laptop memory/latency budget.
-5. **Robustness gate:** test scans, tables, malformed text, unanswerable questions, and mixed languages.
+Run the existing 12-question answerable TEST set exactly once with the frozen configuration.
 
-Fine-tuning is optional. Attempt LoRA or contrastive fine-tuning only after the baseline benchmark identifies a repeatable weakness and enough licensed examples exist. The first claim should be “evaluated and optimized RAG pipeline,” not “fine-tuned model,” unless training materially improves held-out results.
+Report retrieval metrics:
 
-## 5. Product architecture after research
+- EvidenceRecall@1
+- EvidenceRecall@3
+- EvidenceRecall@5
+- CompleteEvidence@5
 
-### 5.1 Recommended offline deployment
+Freeze the resulting top-5 TEST contexts and run Qwen3-4B generation over them.
 
-For the first product version, run these services on the same trusted machine:
+Report:
+
+- semantic correctness proxy;
+- gold-answer coverage;
+- groundedness proxy;
+- citation presence;
+- citation validity;
+- citation support;
+- language compliance;
+- response length/verbosity;
+- generation latency and throughput in the Kaggle environment.
+
+Do not use TEST results to change the configuration.
+
+### R4.2 — four no-answer questions
+
+Run the existing four no-answer questions with the same frozen stack.
+
+Measure:
+
+- refusal accuracy;
+- false-answer/hallucination rate;
+- citation presence on unsupported answers;
+- unsupported-citation rate.
+
+Manually inspect all four raw answers. The current prompt may contain a conflict between the fixed refusal wording and the same-language response policy, so the report must describe observed behavior without changing the frozen prompt.
+
+### R4.3 — close research v1
+
+Update the final research report with:
+
+- corpus description;
+- extraction methodology;
+- chunking comparison;
+- gold benchmark construction;
+- DEV/TEST split;
+- embedding comparison;
+- BM25, dense, and hybrid retrieval;
+- evidence-aware metrics;
+- RRF and reranker experiments;
+- frozen-context generator comparison;
+- French/English results;
+- efficiency results;
+- frozen architecture;
+- locked TEST results;
+- no-answer results;
+- known limitations.
+
+When these results are recorded, mark research v1 complete and stop model-selection work.
+
+## 6. Product v1 architecture
+
+Notebook code must not be copied directly into the backend. The measured behavior will be implemented behind focused, testable production components:
 
 ```text
-Browser
-  -> Next.js local UI
-  -> FastAPI local API
-     -> ingestion workers
-     -> multilingual embedder
-     -> lexical index (BM25)
-     -> vector index (pgvector or a local embedded alternative)
-     -> local GGUF LLM
-     -> local file/object store
+Document ingestion
+    ↓
+Extraction
+    ↓
+Chunking
+    ↓
+Embedding
+    ↓
+FAISS dense index
+    +
+BM25 lexical index
+    ↓
+Retrieval profile selection
+    ↓
+Optional RRF and reranking
+    ↓
+Context assembly
+    ↓
+Local Qwen generation
+    ↓
+Citation validation and response metadata
 ```
 
-The current repository already has FastAPI, Next.js, and PostgreSQL/pgvector concepts. The implementation should reconcile the current ChromaDB wording with the actual pgvector path instead of maintaining two competing designs.
+### Component responsibilities
 
-For a small shared server, PostgreSQL with pgvector is a reasonable default because it supports durable metadata, filtering, backups, and future multi-user access. For a single-laptop demo, an embedded index can be retained as a development option if it makes setup materially simpler. The API should hide this choice behind a vector-store interface.
+#### Document ingestion
 
-### 5.2 Ingestion pipeline
+- validate extension, MIME/signature, file size, and filename;
+- calculate a stable document hash;
+- detect duplicates and replacements;
+- store the original file locally;
+- create an ingestion status: queued, processing, indexed, partially indexed, or failed;
+- retain structured failure details.
 
-1. Validate file signature, extension, size, and duplicate hash.
-2. Store the original file locally.
-3. Detect the format.
-4. Extract text and structural metadata.
-5. Run OCR only for pages/slides with insufficient extracted text.
-6. Normalize Unicode and Arabic text without destroying source text.
-7. Detect language per document/section/chunk.
-8. Convert tables to a searchable representation while retaining the original table metadata.
-9. Create parent and child chunks.
-10. Generate embeddings.
-11. Build/update dense and BM25 indexes.
-12. Mark the document as indexed, failed, or partially indexed with an error report.
+#### Extraction
 
-Indexing should be asynchronous from the user’s perspective. The UI should show queued, processing, indexed, and failed states.
+- preserve document ID and version;
+- preserve page, slide, paragraph, and table-location metadata;
+- return a shared normalized block structure;
+- support PDF, PPTX, and DOCX first;
+- allow future extractors to be added without changing retrieval or routes.
 
-### 5.3 Query pipeline
+#### Chunking
 
-1. Validate the question and preserve conversation history limits.
-2. Detect query language and normalize only the search copy.
-3. Retrieve dense candidates.
-4. Retrieve BM25 candidates.
-5. Merge and deduplicate candidates.
-6. Apply metadata filters such as document/category/language when requested.
-7. Rerank the best candidates when enabled.
-8. Expand child hits into parent context without exceeding the LLM context budget.
-9. Ask the local LLM to answer only from the supplied evidence.
-10. Require structured output containing answer, citations, confidence, and an explicit unknown state.
-11. Validate that cited chunk IDs exist and belong to the retrieved evidence.
-12. Return the answer and source cards to the frontend.
+- use the frozen 320-token target and 48-token overlap initially;
+- retain block and source-location relationships;
+- generate stable chunk IDs;
+- keep enough metadata to reconstruct citations;
+- record tokenizer/model revision used for chunk sizing.
 
-The system must prefer “I could not find enough evidence” over a plausible unsupported answer.
+#### Embedding
 
-## 6. Backend implementation plan
+- use `Qwen/Qwen3-Embedding-0.6B`;
+- normalize document and query embeddings consistently;
+- process documents in batches;
+- persist model revision and embedding dimension;
+- operate from a local model directory after installation.
 
-### Phase A: establish clean boundaries
+#### Indexing
 
-Expected areas to revise:
+- maintain a FAISS dense index and chunk-ID mapping;
+- maintain a BM25 lexical index over the same chunk IDs;
+- support atomic rebuild or safe incremental updates;
+- remove/re-index all affected entries when a document is replaced or deleted;
+- persist enough metadata to reload indexes after application restart.
+
+#### Retrieval
+
+- expose Fast and Quality profiles through one interface;
+- return ranked chunks with trace metadata;
+- keep RRF and reranking modular;
+- prevent profile-specific behavior from leaking into API routes.
+
+#### Context assembly
+
+- deduplicate overlapping evidence;
+- keep the selected rank and score metadata;
+- enforce the generator context budget;
+- label sources deterministically as `[S1]`, `[S2]`, and so on;
+- retain the mapping from source label to document location.
+
+#### Local generation
+
+- run Qwen3-4B locally without hosted inference;
+- use a CPU-compatible quantized runtime for the target laptop;
+- use deterministic grounded-answer behavior initially;
+- answer in the question language where the model can do so reliably;
+- return an explicit insufficient-evidence result when the context does not support an answer.
+
+#### Citation validation
+
+- reject citation labels that were not provided in the context;
+- map every valid citation to a known chunk and document;
+- return filename, page/slide/section, excerpt, and ranking metadata;
+- distinguish citation presence from actual citation support in tests.
+
+## 7. Runtime profiles
+
+Both profiles use the same ingestion, chunks, embeddings, model, and response contract.
+
+### Fast mode
+
+```text
+Question
+  ↓
+Qwen3-Embedding-0.6B
+  ↓
+Dense FAISS retrieval
+  ↓
+Top-K context
+  ↓
+Qwen3-4B
+```
+
+Priorities:
+
+- lower latency;
+- lower operational complexity;
+- useful default for normal queries;
+- no BM25, RRF, or reranker cost.
+
+### Quality mode
+
+```text
+Question
+  ↓
+Qwen3-Embedding-0.6B
+  ├── Dense FAISS
+  └── BM25
+        ↓
+       RRF
+        ↓
+BGE-reranker-v2-m3
+        ↓
+Top-5 context
+        ↓
+Qwen3-4B
+```
+
+Priorities:
+
+- maximum measured retrieval quality;
+- stronger first-rank evidence;
+- preservation of complete top-5 evidence;
+- higher latency and resource cost.
+
+The reranker must be optional and configurable. Enabling or disabling it must not require changes to ingestion, indexing, routes, or generation.
+
+## 8. Backend integration plan
+
+The current repository already contains FastAPI routes and embedding, retrieval, and LLM services. Integration begins with a read-only audit of the active code path, then replaces prototype assumptions in small PR-sized steps.
+
+Expected existing areas:
 
 - `backend/main.py`
 - `backend/routes/chat.py`
@@ -323,228 +387,237 @@ Expected areas to revise:
 - `backend/tests/`
 - `backend/pyproject.toml`
 
-Add explicit interfaces/models for:
+### P0 — baseline and design audit
 
-- document records and versions;
-- ingestion jobs;
-- extracted blocks;
-- chunks and citations;
-- retrieval results;
-- model configuration;
-- benchmark/evaluation results.
+- confirm current endpoint contracts and frontend dependencies;
+- identify stale ChromaDB, pgvector, Groq, and local-GGUF assumptions;
+- decide the production artifact layout for original files, metadata, FAISS, BM25, and model weights;
+- define shared document, block, chunk, retrieval-result, citation, and ingestion-job models;
+- make the existing test command runnable;
+- record the intended offline startup path.
 
-Keep routes thin. Move parsing, indexing, retrieval, and generation decisions into services that can be tested without HTTP.
+### P1 — production ingestion and extraction
 
-### Phase B: replace format-specific assumptions
+- create clean extractor boundaries for validated formats;
+- implement stable document/chunk metadata;
+- add duplicate, replace, delete, and re-index behavior;
+- add ingestion status and structured errors;
+- add extraction fixtures and targeted tests.
 
-Create format adapters behind a common extractor interface. Each adapter returns normalized blocks with location metadata. Begin with PDF, DOCX, PPTX, XLSX, TXT, and Markdown. Add OCR as a separate fallback adapter rather than forcing OCR through every document.
+### P2 — embedding and Fast mode
 
-Do not silently claim that an uploaded file is indexed if extraction or embedding fails. Store a structured failure reason.
+- integrate the local Qwen3 embedding model;
+- build persistent FAISS index and metadata mapping;
+- implement dense retrieval;
+- implement Fast mode end to end;
+- add retrieval trace output and tests.
 
-### Phase C: implement retrieval variants
+### P3 — Quality mode
 
-Add:
+- add a persistent BM25 index over the same chunks;
+- implement Reciprocal Rank Fusion;
+- add the optional BGE reranker;
+- implement Quality mode behind the same retrieval interface;
+- verify evidence ordering and top-5 coverage behavior.
 
-- dense retrieval;
-- BM25 retrieval;
-- hybrid fusion;
-- optional reranking;
-- metadata filtering;
-- parent-child context expansion;
-- deterministic result tracing for debugging.
+### P4 — local generation and citations
 
-The production default should be selected from benchmark evidence and stored in a versioned configuration file, not hidden in route code.
+- implement the local Qwen3-4B runtime adapter;
+- remove hosted inference as a requirement;
+- assemble deterministic source-labelled prompts;
+- validate model-produced citation labels;
+- implement insufficient-evidence behavior;
+- return source metadata through the existing API contract or a backward-compatible extension.
 
-### Phase D: local generation
+### P5 — API and frontend integration
 
-Replace the hosted-LLM dependency in offline mode with a local model adapter. Keep provider selection behind an interface so experiments can run without changing routes.
+- keep routes thin and delegate work to services;
+- preserve working upload, list, ask, and delete flows;
+- add ingestion status to the knowledge-base UI;
+- allow Fast/Quality profile selection;
+- display filename and page/slide citation cards;
+- show indexing, failure, no-evidence, and local-model-loading states;
+- use the planned sidebar, chat, knowledge-base, and overview layout without copying the reference designs literally.
 
-The adapter must support:
+### P6 — local deployment profiling
 
-- model path and checksum;
-- quantization/runtime configuration;
-- maximum context;
-- maximum output tokens;
-- temperature/seed;
-- streaming later, after correctness is stable;
-- structured answer/citation output.
+Run the integrated application on the target laptop and measure components separately:
 
-### Phase E: reliability and test coverage
+- model download and disk size;
+- model load time;
+- cold-start latency;
+- warm-query latency;
+- query embedding latency;
+- FAISS retrieval latency;
+- BM25 latency;
+- RRF latency;
+- reranker latency;
+- generation latency;
+- time to first token, if measurable;
+- tokens per second;
+- peak CPU RAM;
+- peak GPU VRAM only when a GPU is used;
+- dense and lexical index sizes;
+- full end-to-end query latency.
 
-Add tests for:
+Existing Kaggle GPU timing must not be presented as laptop CPU timing.
 
-- every supported extractor;
-- Arabic RTL and Unicode normalization;
-- multilingual language detection;
-- tables and merged cells;
-- duplicate/re-index behavior;
-- OCR fallback;
-- hybrid retrieval ordering;
-- citation validation;
-- unknown-answer behavior;
-- model-loading failures;
-- API health and ingestion status.
+The previous reranker measurement must be interpreted correctly: approximately 9–14 seconds covered an entire 46-question finalist configuration, about 1,380 query-passage pairs. It was not 9–14 seconds per individual query.
 
-Use small fixture documents checked into a test-only fixture directory. Do not commit company data or downloaded model weights.
+Local results will determine which profile becomes the default. If the reranker is too slow on CPU, Quality mode may remain an explicit opt-in profile.
 
-## 7. Frontend plan based on the provided designs
+### P7 — hardening and portfolio delivery
 
-Use the references as a visual direction, not as a literal copy.
+- run `ruff` formatting/lint checks;
+- run backend unit and integration tests with coverage;
+- run the Next.js build/type-safety check;
+- validate Docker Compose configuration and container builds;
+- test a fully offline startup after caches and model files are prepared;
+- document model licenses and exact revisions;
+- document limitations and unsupported file types;
+- add screenshots, architecture diagrams, result tables, and a short demo script;
+- publish only measured latency and quality claims.
+
+## 9. Frontend product plan
 
 ### Main workspace
 
-- Left sidebar:
-  - workspace/user indicator;
-  - Chat;
-  - Knowledge Base;
-  - Overview;
-  - Settings.
-- Center chat:
-  - assistant status and active model;
-  - conversation;
-  - compact source/citation cards;
-  - question input and language-aware placeholder.
-- Knowledge Base panel:
-  - drag-and-drop upload;
-  - supported-format note;
-  - file name, type, size, status, language, indexed date;
-  - retry/delete/re-index actions.
+- left navigation for Chat, Knowledge Base, Overview, and Settings;
+- central chat with local-model and retrieval-profile status;
+- question input and grounded response rendering;
+- compact citation cards linked to the original document location;
+- clear insufficient-evidence responses.
 
-### Overview page
+### Knowledge Base
 
-Show measurable system information:
+- drag-and-drop upload;
+- file name, type, size, status, and indexed date;
+- processing, indexed, partially indexed, and failed states;
+- retry, delete, replace, and re-index actions;
+- supported-format information that matches actual backend behavior.
 
-- total indexed documents;
-- chunks and source types;
+### Overview
+
+- indexed document and chunk counts;
 - recent ingestion activity;
-- average query latency;
-- model and embedding revision;
-- index health;
-- failed jobs requiring attention.
+- active embedding and generator revisions;
+- active retrieval profile;
+- average measured local query latency;
+- index health and failed jobs.
 
 Avoid vanity metrics until real telemetry exists.
 
-### Interaction requirements
+## 10. Future feature work
 
-- Never imply that a file is searchable before indexing succeeds.
-- Make citations clickable to the source location when local preview is available.
-- Show “evidence found” and “not enough evidence” states clearly.
-- Preserve the clean light UI direction from the reference images, with restrained accent colors and high readability.
-- Keep the chat usable on a laptop screen before adding complex responsive behavior.
+These are independent product/research features. They are not blockers for research v1 closure or initial product integration.
 
-## 8. Security and offline operation
+### F1 — XLSX and table QA
 
-Phase one can assume trusted-machine access, but it must still avoid unsafe defaults:
+- add spreadsheet ingestion;
+- preserve sheet, row, column, and table metadata;
+- compare Markdown tables;
+- compare row-wise text with repeated headers;
+- compare schema plus row chunks;
+- evaluate DuckDB/text-to-SQL only where structured aggregation is genuinely required;
+- never make text-to-SQL mandatory for every spreadsheet question.
 
-- no hosted LLM calls in offline mode;
-- no hard-coded production secrets;
-- configurable bind address;
-- configurable model directory;
-- file size and count limits;
-- path traversal protection;
-- allowed MIME/signature validation;
-- safe deletion and re-indexing;
-- logs that never print document contents or secrets.
+### F2 — OCR and scanned documents
 
-Phase two may add:
+- add OCR as a separate extraction capability;
+- detect pages with insufficient embedded text;
+- keep OCR evaluation separate from retrieval evaluation;
+- test image-only PDFs;
+- test low-resolution and rotated scans;
+- test French and Arabic scans;
+- test scanned tables;
+- expose partial/failed OCR status instead of silently indexing empty content.
 
-- local user accounts or company SSO;
-- role/department metadata;
-- document-level access filters;
-- audit logs;
-- read-only database connectors;
-- backup/restore and retention policies.
+### F3 — harder and larger gold benchmark
 
-## 9. Documentation and CV deliverables
+- add answerable and no-answer questions;
+- add multi-evidence and multi-document questions;
+- add near-duplicate passages and harder distractors;
+- add lexical mismatch and paraphrased questions;
+- add spelling mistakes;
+- use new benchmark cases to validate new features rather than delay product v1.
 
-Update documentation after implementation, not before the architecture is proven:
+### F4 — Arabic support
 
-- README quickstart for offline laptop mode;
-- architecture diagram with ingestion and query paths;
-- benchmark methodology and dataset licenses;
-- experiment table with final metrics;
-- model-card and license notes;
-- limitations and failure cases;
-- deployment/runbook for a shared local server;
-- short CV project description with quantified results.
+- test Arabic PDF and DOCX extraction;
+- test right-to-left reading order;
+- test Arabic Unicode normalization variants;
+- test Arabic question to Arabic evidence;
+- test Arabic question to French evidence;
+- test French question to Arabic evidence;
+- test mixed-language queries and documents;
+- evaluate retrieval and generation separately;
+- do not claim full Arabic support before these tests pass.
 
-Suggested final CV statement:
+### F5 — access control and data connectors
 
-> Built and evaluated an offline multilingual RAG assistant for messy enterprise documents, comparing structure-aware extraction, hybrid retrieval, multilingual embeddings, reranking, and quantized local LLMs across English, French, and Arabic; added citations, OCR fallback, local indexing, and measurable quality/latency benchmarks.
+- add local accounts or company SSO;
+- add document-level and department-level filters;
+- add audit logs;
+- design read-only SQL/database connectors;
+- add backup, restore, retention, and operational policies.
 
-Replace this with actual measured numbers only after the benchmark is complete.
+## 11. Acceptance criteria
 
-## 10. Milestones
+### Research v1 closure
 
-### Milestone 0 — baseline and repository cleanup
+- the frozen configuration is documented;
+- the locked 12-question TEST is run exactly once;
+- TEST retrieval and generation metrics are recorded;
+- the existing four no-answer questions are run;
+- all no-answer outputs are manually inspected;
+- weaknesses are documented without retuning;
+- the final report distinguishes DEV selection from TEST evidence;
+- research v1 is marked complete.
 
-- Confirm current routes and frontend proxy behavior.
-- Make the test command runnable.
-- Remove stale ChromaDB/Groq-only assumptions from documentation and configuration.
-- Define model/config/artifact directories and ignore downloaded weights.
+### Product v1
 
-### Milestone 1 — benchmark harness
+- normal operation requires no internet connection;
+- validated PDF, PPTX, and DOCX files can be indexed;
+- new documents can be indexed without restarting the application;
+- Fast mode works end to end;
+- Quality mode works end to end or is explicitly disabled by configuration;
+- Qwen3-4B runs locally within the target machine’s resource budget;
+- answers contain validated citations mapped to source locations;
+- unsupported questions can produce an insufficient-evidence response;
+- deletion and replacement keep both indexes consistent;
+- backend tests, frontend build, and applicable Docker checks pass;
+- local CPU performance and memory results are documented;
+- the README states current limitations without claiming XLSX, OCR, Arabic, or database support.
 
-- Create dataset manifests and fixture corpus.
-- Implement common extraction/chunking output.
-- Implement baseline dense retrieval and metric reporting.
-- Produce the first Kaggle result artifact.
+## 12. Documentation and CV output
 
-### Milestone 2 — messy document ingestion
+After product integration, documentation must include:
 
-- Add office formats, tables, OCR fallback, Arabic normalization, and status tracking.
-- Measure extraction loss and indexing throughput.
+- offline laptop quickstart;
+- architecture diagram for ingestion and query paths;
+- research v1 methodology and final frozen configuration;
+- DEV and locked TEST result tables;
+- no-answer observations;
+- Fast versus Quality profile comparison;
+- local CPU performance measurements;
+- model names, revisions, quantization, and licenses;
+- known limitations and future features;
+- deployment notes for a local shared server.
 
-### Milestone 3 — retrieval experiments
+Suggested CV statement, to be updated with final TEST and local profiling numbers:
 
-- Compare embedding candidates.
-- Add BM25 and hybrid retrieval.
-- Evaluate optional reranking.
-- Select a provisional retrieval stack.
+> Built and evaluated an offline RAG assistant for heterogeneous internal documents, comparing token-aware chunking, multilingual embeddings, BM25/dense hybrid retrieval, reranking, and quantized local LLMs; integrated Fast and Quality retrieval profiles with local generation, validated citations, and measured CPU deployment performance.
 
-### Milestone 4 — local LLM experiments
+Do not claim production Arabic, OCR, or spreadsheet support until the corresponding future features are implemented and validated.
 
-- Compare quantized candidates within the 6 GB constraint.
-- Measure groundedness, citation correctness, multilingual behavior, and CPU latency.
-- Select a provisional generator.
+## 13. Immediate next actions
 
-### Milestone 5 — product integration
-
-- Implement the selected adapters and configuration.
-- Add ingestion job status and traceable citations.
-- Remove the required dependency on hosted inference.
-
-### Milestone 6 — frontend and portfolio polish
-
-- Implement the sidebar/chat/knowledge-base/overview layout.
-- Add empty, loading, processing, failure, and no-evidence states.
-- Add screenshots, architecture diagram, benchmark tables, and a concise demo script.
-
-### Milestone 7 — hardening
-
-- Run backend lint/tests/coverage.
-- Run frontend build/type checks.
-- Run Docker Compose configuration and build checks.
-- Test fully offline after model/package caches are prepared.
-
-## 11. Acceptance criteria before calling the project complete
-
-- The complete query path works without internet access.
-- At least PDF, DOCX, PPTX, XLSX, TXT, and Markdown are indexed or explicitly reported unsupported with a clear reason.
-- Scanned PDFs have an OCR path and a visible processing result.
-- English, French, and Arabic benchmark results are reported separately.
-- The selected embedding and LLM fit the laptop resource budget.
-- Answers include validated source citations.
-- Unsupported questions produce an explicit insufficient-evidence response.
-- New uploads do not require restarting the application.
-- Tests and frontend build pass using documented commands.
-- The README explains the measured limitations instead of claiming perfect accuracy.
-
-## 12. Decisions made for the next step
-
-- Work will continue on `feature/local-rag-research-platform`.
-- The next repository change is limited to this `plan.md`.
-- No application code, secrets, downloaded model weights, or company data will be changed or committed as part of this planning step.
-- Research will begin with text and common office documents, then add OCR and layout complexity in controlled stages.
-- The primary goal is a defensible, measurable offline RAG system for a CV portfolio; direct database querying and fine-tuning are optional follow-up work.
+1. Run the frozen 12-question TEST exactly once.
+2. Run and manually inspect the four no-answer questions.
+3. Append both results to the final research report.
+4. Mark research v1 complete.
+5. Begin product milestone P0: audit the current backend/API/frontend contracts.
+6. Implement P1–P5 in small feature-branch changes.
+7. Profile the integrated system on the target laptop.
+8. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

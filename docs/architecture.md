@@ -2,8 +2,9 @@
 
 > This document contains the original prototype flow. The current offline
 > ingestion implementation is documented in [P1 ingestion](p1-ingestion.md);
-> FAISS/BM25 retrieval and local Qwen generation will replace the prototype
-> ChromaDB/Groq assumptions in the next milestones.
+> FAISS/BM25 retrieval is documented in [P2 Fast retrieval](p2-fast-retrieval.md)
+> and [P3 Quality retrieval](p3-quality-retrieval.md); local Qwen generation
+> will replace the remaining prototype ChromaDB/Groq assumptions in P4.
 
 DocMind is designed as a modular, lightweight Retrieval-Augmented Generation (RAG) platform that enables enterprise teams to query internal PDF documents in natural language with source citation grounding.
 

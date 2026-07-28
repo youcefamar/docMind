@@ -165,3 +165,6 @@ P2 FAISS/BM25 indexer is connected.
 
 ### 4. Delete Document
 `DELETE /api/doc/{doc_id}`
+
+### 5. Re-index Document
+`POST /api/doc/{doc_id}/reindex`

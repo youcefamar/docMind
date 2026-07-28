@@ -119,3 +119,57 @@ def test_ask_uses_fast_dense_results_when_available(monkeypatch):
     assert response.status_code == 200
     assert response.json()["retrieval_profile"] == "fast"
     assert response.json()["sources"][0]["filename"] == "policy.md"
+
+
+def test_ask_uses_quality_retriever_when_available(monkeypatch):
+    class FakeMetadata:
+        def get_document(self, document_id):
+            return DocumentRecord(
+                id=document_id,
+                filename="quality.md",
+                sha256="b" * 64,
+                size_bytes=10,
+                category="HR",
+                status=DocumentStatus.INDEXED,
+                original_path="quality.md",
+                chunk_count=1,
+                total_pages=1,
+                created_at="2026-01-01T00:00:00+00:00",
+                updated_at="2026-01-01T00:00:00+00:00",
+            )
+
+    class FakeQuality:
+        ready = True
+        dense_index = type("Dense", (), {"metadata_store": FakeMetadata()})()
+
+        def search(self, question, category=None, final_k=5):
+            return [
+                RetrievalResult(
+                    chunk_id="doc-quality:chunk:1",
+                    document_id="doc-quality",
+                    text="Quality evidence.",
+                    rank=1,
+                    score=0.88,
+                    retrieval_profile=RetrievalProfile.QUALITY,
+                    filename="quality.md",
+                    category="HR",
+                    location_type="page",
+                    location_value="1",
+                )
+            ]
+
+    class FakeLLM:
+        def generate_answer(self, question, sources, chat_history=None):
+            return "Quality evidence. [S1]", 0.88, "High"
+
+    monkeypatch.setattr(chat_route, "quality_retriever", FakeQuality())
+    monkeypatch.setattr(chat_route, "llm_service", FakeLLM())
+
+    response = client.post(
+        "/api/ask",
+        json={"question": "What is the evidence?", "retrieval_profile": "quality"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["retrieval_profile"] == "quality"
+    assert response.json()["sources"][0]["filename"] == "quality.md"

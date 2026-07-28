@@ -34,6 +34,7 @@ the API response contract.
 - New successful uploads are `partially_indexed` until vector indexing exists.
 - `GET /api/docs` reads the local catalog, including status and errors.
 - `DELETE /api/doc/{doc_id}` removes the local document and extracted metadata.
+- `POST /api/doc/{doc_id}/reindex` reruns extraction and available indexing.
 
 ## Validation
 

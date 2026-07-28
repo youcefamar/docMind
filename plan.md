@@ -429,13 +429,16 @@ Expected existing areas:
 Runtime validation with the actual Qwen weights remains a deployment check and
 requires setting `DOCMIND_EMBEDDING_MODEL_PATH` to a cached local model.
 
-### P3 — Quality mode
+### P3 — Quality mode — implemented
 
-- add a persistent BM25 index over the same chunks;
-- implement Reciprocal Rank Fusion;
-- add the optional BGE reranker;
-- implement Quality mode behind the same retrieval interface;
-- verify evidence ordering and top-5 coverage behavior.
+- [x] add a persistent BM25 index over the same chunks;
+- [x] implement Reciprocal Rank Fusion;
+- [x] add the optional BGE reranker;
+- [x] implement Quality mode behind the same retrieval interface;
+- [x] verify evidence ordering and top-5 coverage behavior.
+
+Runtime reranker profiling remains a P6 deployment check; Quality mode falls
+back to RRF ordering when local BGE weights are not configured.
 
 ### P4 — local generation and citations
 
@@ -629,8 +632,8 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Begin product milestone P3: add BM25, RRF, and optional BGE reranking.
-2. Keep P4 local generation behind the same retrieval and citation contracts.
+1. Begin product milestone P4: integrate local Qwen3-4B generation and citation validation.
+2. Keep P5 frontend integration behind the same retrieval and citation contracts.
 3. Profile the integrated system on the target laptop.
 4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from services.embedder import EmbeddingService
 from services.llm import LLMService
 from services.retriever import VectorStoreService
-from services.runtime import dense_index
+from services.runtime import dense_index, quality_retriever
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -80,12 +80,46 @@ def _dense_sources(question: str, category: Optional[str], top_k: int) -> list[d
 async def ask_question(request: AskRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    if request.retrieval_profile is RetrievalProfile.QUALITY:
-        raise HTTPException(status_code=501, detail="Quality retrieval mode is planned for P3.")
+    if request.retrieval_profile is RetrievalProfile.QUALITY and (
+        quality_retriever is None or not quality_retriever.ready
+    ):
+        raise HTTPException(
+            status_code=501,
+            detail="Quality retrieval requires a ready Qwen dense index and BM25 index.",
+        )
 
     try:
-        sources = _dense_sources(request.question, request.category, top_k=5)
-        if not sources:
+        if request.retrieval_profile is RetrievalProfile.QUALITY:
+            quality_results = quality_retriever.search(
+                request.question,
+                category=request.category,
+                final_k=5,
+            )
+            sources = []
+            for result in quality_results:
+                document = quality_retriever.dense_index.metadata_store.get_document(
+                    result.document_id
+                )
+                if not document:
+                    continue
+                sources.append(
+                    {
+                        "doc_id": result.document_id,
+                        "chunk_id": result.chunk_id,
+                        "filename": result.filename,
+                        "category": result.category,
+                        "page_number": int(result.location_value)
+                        if result.location_type == "page"
+                        else 1,
+                        "total_pages": document.total_pages,
+                        "excerpt": result.text,
+                        "similarity": round(result.score, 3),
+                        "rank": result.rank,
+                    }
+                )
+        else:
+            sources = _dense_sources(request.question, request.category, top_k=5)
+        if not sources and request.retrieval_profile is RetrievalProfile.FAST:
             # Transitional fallback for documents indexed by the old pgvector path.
             query_embeddings = embedder_service.generate_embeddings([request.question])
             sources = retriever_service.search(

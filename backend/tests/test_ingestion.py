@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,23 @@ def test_ingest_stores_original_and_metadata(tmp_path: Path):
     assert result.document.chunk_count == 1
     assert Path(result.document.original_path).read_bytes().startswith(b"Remote work")
     assert len(service.metadata_store.get_chunks(result.document.id)) == 1
+
+
+def test_ingest_logs_extraction_and_embedding_stages(tmp_path: Path, caplog):
+    service = make_service(tmp_path)
+    caplog.set_level(logging.INFO, logger="docmind.ingestion")
+
+    result = service.ingest(
+        "policy.md",
+        b"Remote work is allowed two days per week.",
+        indexer=lambda chunks: len(chunks),
+    )
+
+    assert result.document.status is DocumentStatus.INDEXED
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("[UPLOAD] extraction complete" in message for message in messages)
+    assert any("[UPLOAD] embedding/indexing start" in message for message in messages)
+    assert any("[UPLOAD] embedding/indexing complete" in message for message in messages)
 
 
 def test_same_content_is_idempotent(tmp_path: Path):

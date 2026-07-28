@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Upload, FileText, Trash2, FolderPlus, CheckCircle2, AlertCircle, RefreshCw, Layers, HardDrive, BookOpen } from 'lucide-react';
+import { getApiErrorMessage, readApiPayload } from '../lib/api';
 
 interface DocumentSummary {
   id: string;
@@ -45,7 +46,8 @@ export default function UploadPanel() {
     try {
       const res = await fetch('/api/backend/config/');
       if (!res.ok) return;
-      const config = await res.json();
+      const config = await readApiPayload<Record<string, any>>(res);
+      if (!config) return;
       setCategories(config.categories || []);
       setSupportedExtensions(config.supported_extensions || []);
       setMaxFileSizeMb(config.max_file_size_mb || 50);
@@ -60,8 +62,8 @@ export default function UploadPanel() {
     try {
       const res = await fetch('/api/backend/docs');
       if (res.ok) {
-        const data = await res.json();
-        setDocuments(data);
+        const data = await readApiPayload<unknown>(res);
+        if (Array.isArray(data)) setDocuments(data as DocumentSummary[]);
       }
     } catch (err) {
       console.error('Failed to fetch documents:', err);
@@ -74,9 +76,11 @@ export default function UploadPanel() {
     try {
       const res = await fetch('/api/backend/sources/status');
       if (res.ok) {
-        const data = await res.json();
-        setSyncStatus(data);
-        return data;
+        const data = await readApiPayload<SyncStatus>(res);
+        if (data && typeof data === 'object') {
+          setSyncStatus(data);
+          return data;
+        }
       }
     } catch (err) {
       console.error('Failed to fetch knowledge-folder status:', err);
@@ -95,8 +99,9 @@ export default function UploadPanel() {
     setUploadMessage(null);
     try {
       const res = await fetch('/api/backend/sources/sync', { method: 'POST' });
-      const payload = await res.json();
-      if (!res.ok) throw new Error(payload?.detail || 'Knowledge-folder sync failed');
+      const payload = await readApiPayload<{ status?: SyncStatus }>(res);
+      if (!res.ok) throw new Error(getApiErrorMessage(payload, 'Knowledge-folder sync failed'));
+      if (!payload?.status) throw new Error('Knowledge-folder sync returned an invalid response.');
       setSyncStatus(payload.status);
       const poll = async () => {
         const latest = await fetchSyncStatus();
@@ -133,12 +138,10 @@ export default function UploadPanel() {
         body: formData,
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.detail || 'Upload failed');
-      }
-
-      const result = await res.json();
+      const payload = await readApiPayload<unknown>(res);
+      if (!res.ok) throw new Error(getApiErrorMessage(payload, `Upload failed (HTTP ${res.status})`));
+      if (!Array.isArray(payload)) throw new Error('Upload returned an invalid response.');
+      const result = payload as DocumentSummary[];
       const indexedCount = result.filter((item: DocumentSummary) => item.status === 'indexed').length;
       const pendingCount = result.length - indexedCount;
       setUploadMessage({
@@ -180,9 +183,9 @@ export default function UploadPanel() {
   const handleReindex = async (docId: string, filename: string) => {
     try {
       const res = await fetch(`/api/backend/doc/${docId}/reindex`, { method: 'POST' });
+      const payload = await readApiPayload<unknown>(res);
       if (!res.ok) {
-        const errorPayload = await res.json().catch(() => null);
-        throw new Error(errorPayload?.detail?.message || errorPayload?.detail || 'Re-index failed');
+        throw new Error(getApiErrorMessage(payload, `Re-index failed (HTTP ${res.status})`));
       }
       setUploadMessage({ type: 'success', text: `Re-indexed '${filename}'.` });
       fetchDocuments();

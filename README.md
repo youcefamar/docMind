@@ -187,6 +187,13 @@ count, model backend, and stage latency in the terminal. Set
 The response includes `status`. New documents are `partially_indexed` until the
 P2 FAISS/BM25 indexer is connected.
 
+The backend terminal prints upload diagnostics for each file. Look for
+`[UPLOAD] extraction complete`, `[UPLOAD] embedding/indexing start`,
+`[EMBED] complete`, and `[INDEX] ... complete` to see where time is spent. If a
+request fails before FastAPI can produce a normal response, the API returns a
+JSON error telling you to check those terminal logs; the frontend also accepts
+plain-text proxy errors instead of attempting to parse them as JSON.
+
 ### 3. List Catalog
 `GET /api/docs`
 

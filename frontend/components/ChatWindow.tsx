@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Trash2, Sparkles, Filter, RefreshCw, CheckCircle2, Cpu, Database } from 'lucide-react';
 import SourceCard, { Source } from './SourceCard';
+import { getApiErrorMessage, readApiPayload } from '../lib/api';
 
 interface Message {
   id: string;
@@ -123,11 +124,14 @@ export default function ChatWindow() {
       });
 
       if (!res.ok) {
-        const errorPayload = await res.json().catch(() => null);
-        throw new Error(errorPayload?.detail || `Server returned HTTP ${res.status}`);
+        const errorPayload = await readApiPayload<unknown>(res);
+        throw new Error(getApiErrorMessage(errorPayload, `Server returned HTTP ${res.status}`));
       }
 
-      const data = await res.json();
+      const data = await readApiPayload<Record<string, any>>(res);
+      if (!data || typeof data.answer !== 'string') {
+        throw new Error('Backend returned an invalid answer response.');
+      }
 
       const botMsg: Message = {
         id: `bot_${Date.now()}`,

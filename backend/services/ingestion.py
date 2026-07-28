@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +41,8 @@ class IngestionResult(BaseModel):
 
 
 Indexer = Callable[[list[dict]], int | bool | None]
+
+logger = logging.getLogger("docmind.ingestion")
 
 
 class DocumentIngestionService:
@@ -114,11 +118,37 @@ class DocumentIngestionService:
         indexer: Optional[Indexer] = None,
         content_type: Optional[str] = None,
     ) -> IngestionResult:
-        self.validate_upload(filename, content, content_type)
+        started_at = time.perf_counter()
+        stage = "validation"
+        logger.info(
+            "[UPLOAD] start file=%s size_bytes=%d category=%s embedding_enabled=%s",
+            filename or "<missing>",
+            len(content),
+            category or settings.default_category,
+            bool(indexer),
+        )
+        try:
+            self.validate_upload(filename, content, content_type)
+        except IngestionError as error:
+            logger.warning(
+                "[UPLOAD] rejected file=%s stage=%s code=%s elapsed_ms=%.1f",
+                filename or "<missing>",
+                stage,
+                error.code,
+                (time.perf_counter() - started_at) * 1000,
+            )
+            raise
+
         digest = self._hash(content)
         existing_hash = self.metadata_store.find_by_hash(digest)
 
         if existing_hash and not replace:
+            logger.info(
+                "[UPLOAD] duplicate file=%s document_id=%s elapsed_ms=%.1f",
+                filename,
+                existing_hash.id,
+                (time.perf_counter() - started_at) * 1000,
+            )
             job = IngestionJob(
                 id=f"duplicate-{existing_hash.id}",
                 document_id=existing_hash.id,
@@ -159,6 +189,7 @@ class DocumentIngestionService:
         self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
 
         try:
+            stage = "persist_original"
             document.status = DocumentStatus.PROCESSING
             job.status = DocumentStatus.PROCESSING
             document.updated_at = self._now()
@@ -170,6 +201,9 @@ class DocumentIngestionService:
             temporary_path.write_bytes(content)
             os.replace(temporary_path, original_path)
 
+            stage = "extraction"
+            extraction_started_at = time.perf_counter()
+            logger.info("[UPLOAD] extraction start file=%s", filename)
             raw_chunks = self.processor.extract_chunks(
                 file_bytes=content,
                 filename=filename,
@@ -178,7 +212,16 @@ class DocumentIngestionService:
             )
             if not raw_chunks:
                 raise IngestionError("extraction_empty", "No readable text was found in the document.")
+            total_pages = max(int(chunk.get("total_pages", 1)) for chunk in raw_chunks)
+            logger.info(
+                "[UPLOAD] extraction complete file=%s chunks=%d pages=%d elapsed_ms=%.1f",
+                filename,
+                len(raw_chunks),
+                total_pages,
+                (time.perf_counter() - extraction_started_at) * 1000,
+            )
 
+            stage = "persist_content"
             blocks_by_id: dict[str, DocumentBlock] = {}
             chunks: list[ChunkRecord] = []
             for raw_chunk in raw_chunks:
@@ -210,7 +253,20 @@ class DocumentIngestionService:
 
             self.metadata_store.replace_content(document_id, blocks_by_id.values(), chunks)
             if indexer:
+                stage = "embedding_indexing"
+                indexing_started_at = time.perf_counter()
+                logger.info(
+                    "[UPLOAD] embedding/indexing start file=%s chunks=%d",
+                    filename,
+                    len(raw_chunks),
+                )
                 index_result = indexer(raw_chunks)
+                logger.info(
+                    "[UPLOAD] embedding/indexing complete file=%s result=%s elapsed_ms=%.1f",
+                    filename,
+                    index_result,
+                    (time.perf_counter() - indexing_started_at) * 1000,
+                )
                 document.status = (
                     DocumentStatus.PARTIALLY_INDEXED
                     if index_result is False or index_result == 0
@@ -226,14 +282,35 @@ class DocumentIngestionService:
             job.error_detail = None
             self.metadata_store.save_document(document)
             self.metadata_store.save_job(job, document.updated_at.isoformat(), document.updated_at.isoformat())
+            logger.info(
+                "[UPLOAD] complete file=%s document_id=%s status=%s chunks=%d elapsed_ms=%.1f",
+                filename,
+                document.id,
+                document.status.value,
+                document.chunk_count,
+                (time.perf_counter() - started_at) * 1000,
+            )
             return IngestionResult(
                 document=document,
                 job=job,
                 replaced=bool(existing_name and replace),
             )
         except IngestionError as error:
+            logger.error(
+                "[UPLOAD] failed file=%s stage=%s code=%s elapsed_ms=%.1f",
+                filename,
+                stage,
+                error.code,
+                (time.perf_counter() - started_at) * 1000,
+            )
             return self._mark_failed(document, job, error.message, error.code)
         except Exception as error:
+            logger.exception(
+                "[UPLOAD] failed file=%s stage=%s elapsed_ms=%.1f",
+                filename,
+                stage,
+                (time.perf_counter() - started_at) * 1000,
+            )
             return self._mark_failed(document, job, str(error), "ingestion_failed")
 
     def _mark_failed(

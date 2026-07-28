@@ -2,8 +2,9 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +25,23 @@ app = FastAPI(
     description="Offline Internal Knowledge Assistant API with local Qwen generation",
     version="1.0.0"
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, error: Exception):
+    """Keep API failures machine-readable while retaining the traceback locally."""
+    logging.getLogger("docmind.api").exception(
+        "[API] unhandled error method=%s path=%s",
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error. Check the backend terminal logs.",
+            "code": "internal_server_error",
+        },
+    )
 
 # CORS setup for Next.js frontend
 app.add_middleware(

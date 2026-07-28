@@ -1,6 +1,8 @@
 import datetime
 import io
+import logging
 import re
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -31,6 +33,8 @@ except ImportError:
 # Retained for the legacy pgvector path. P2 will replace it with the frozen
 # Qwen3-Embedding-0.6B model behind the same service interface.
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+
+logger = logging.getLogger("docmind.embedding")
 
 
 class DocumentProcessor:
@@ -245,26 +249,43 @@ class QwenEmbeddingService(EmbeddingService):
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         if self.model is None:
+            logger.info(
+                "[EMBED] fallback start texts=%d model=%s reason=model_not_loaded",
+                len(texts),
+                self.model_name,
+            )
             return [self._fallback_vector(text) for text in texts]
 
+        started_at = time.perf_counter()
+        logger.info("[EMBED] start texts=%d model=%s", len(texts), self.model_name)
         try:
-            embeddings = self.model.encode(
-                texts,
-                batch_size=8,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-                normalize_embeddings=True,
-            )
-        except TypeError:
-            embeddings = self.model.encode(
-                texts,
-                batch_size=8,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-            )
+            try:
+                embeddings = self.model.encode(
+                    texts,
+                    batch_size=8,
+                    show_progress_bar=False,
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                )
+            except TypeError:
+                embeddings = self.model.encode(
+                    texts,
+                    batch_size=8,
+                    show_progress_bar=False,
+                    convert_to_numpy=True,
+                )
+        except Exception:
+            logger.exception("[EMBED] failed texts=%d model=%s", len(texts), self.model_name)
+            raise
         rows = embeddings.tolist()
         normalized = []
         for row in rows:
             norm = sum(value * value for value in row) ** 0.5 or 1.0
             normalized.append([value / norm for value in row])
+        logger.info(
+            "[EMBED] complete texts=%d dimension=%d elapsed_ms=%.1f",
+            len(normalized),
+            len(normalized[0]) if normalized else self.embedding_dimension,
+            (time.perf_counter() - started_at) * 1000,
+        )
         return normalized

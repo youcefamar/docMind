@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from pathlib import Path
 
 from services.bm25_index import BM25IndexService
@@ -20,11 +22,25 @@ metadata_store = MetadataStore(DATA_ROOT / "metadata.sqlite")
 embedding_service = QwenEmbeddingService()
 
 MODEL_PATH = os.getenv("DOCMIND_EMBEDDING_MODEL_PATH")
+embedding_logger = logging.getLogger("docmind.embedding")
 if MODEL_PATH and Path(MODEL_PATH).is_dir():
     try:
+        embedding_logger.info("[EMBED] loading local model path=%s", MODEL_PATH)
         embedding_service.load_local_model(MODEL_PATH)
-    except Exception as error:
-        print(f"[Embedding] Local Qwen model was not loaded: {error}")
+        embedding_logger.info(
+            "[EMBED] model ready name=%s dimension=%d",
+            embedding_service.model_name,
+            embedding_service.embedding_dimension,
+        )
+    except Exception:
+        embedding_logger.exception(
+            "[EMBED] local model was not loaded path=%s",
+            MODEL_PATH,
+        )
+elif MODEL_PATH:
+    embedding_logger.warning("[EMBED] configured model path does not exist path=%s", MODEL_PATH)
+else:
+    embedding_logger.warning("[EMBED] no local model configured; dense indexing is disabled")
 
 try:
     dense_index: DenseIndexService | None = DenseIndexService(
@@ -50,12 +66,38 @@ if dense_index is not None:
     quality_retriever = QualityRetriever(dense_index, bm25_index, reranker)
 
 
-def index_document(document_id: str) -> int:
+logger = logging.getLogger("docmind.index")
+
+
+def index_document(document_id: str | list[dict]) -> int:
     """Build both P3 indexes after a successful extraction."""
+    document_label = document_id if isinstance(document_id, str) else "<ingestion-batch>"
     if dense_index is None or not dense_index.model_ready:
+        logger.warning(
+            "[INDEX] skipped document=%s reason=dense_embedding_model_not_ready",
+            document_label,
+        )
         return 0
-    dense_index.index_document(document_id)
-    return bm25_index.index_document(document_id)
+    started_at = time.perf_counter()
+    logger.info("[INDEX] start document=%s stages=embedding,dense,bm25", document_label)
+    dense_started_at = time.perf_counter()
+    dense_count = dense_index.index_document(document_id)  # type: ignore[arg-type]
+    logger.info(
+        "[INDEX] dense complete document=%s chunks=%d elapsed_ms=%.1f",
+        document_label,
+        dense_count,
+        (time.perf_counter() - dense_started_at) * 1000,
+    )
+    bm25_started_at = time.perf_counter()
+    lexical_count = bm25_index.index_document(document_id)  # type: ignore[arg-type]
+    logger.info(
+        "[INDEX] bm25 complete document=%s chunks=%d elapsed_ms=%.1f total_elapsed_ms=%.1f",
+        document_label,
+        lexical_count,
+        (time.perf_counter() - bm25_started_at) * 1000,
+        (time.perf_counter() - started_at) * 1000,
+    )
+    return lexical_count
 
 ingestion_service = DocumentIngestionService(
     DATA_ROOT,

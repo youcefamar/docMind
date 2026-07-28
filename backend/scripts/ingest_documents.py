@@ -27,7 +27,7 @@ def batch_ingest():
             ext = os.path.splitext(file)[1].lower()
             if ext in SUPPORTED_EXTENSIONS:
                 file_path = os.path.join(root, file)
-                
+
                 # Determine category: if in subfolder, use subfolder name. If in root data/documents, use "General"
                 rel_path = os.path.relpath(file_path, DATA_DOCS_DIR)
                 parts = rel_path.split(os.sep)
@@ -58,11 +58,11 @@ def batch_ingest():
                 except Exception as e:
                     print(f"❌ Error processing '{file}': {e}")
 
-    print(f"\n==========================================")
-    print(f"🎉 Batch Ingestion Complete!")
+    print("\n==========================================")
+    print("🎉 Batch Ingestion Complete!")
     print(f"Total Files Processed: {total_files}")
     print(f"Total Vector Chunks Indexed: {total_chunks}")
-    print(f"==========================================\n")
+    print("==========================================\n")
 
 if __name__ == "__main__":
     batch_ingest()

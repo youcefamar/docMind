@@ -1,7 +1,7 @@
-from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from pydantic import BaseModel
+from typing import List
 
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from services.embedder import DocumentProcessor, EmbeddingService
 from services.retriever import VectorStoreService
 
@@ -47,7 +47,7 @@ async def upload_documents(
         ext = file.filename.lower()
         if not ext.endswith(ALLOWED_EXTENSIONS):
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Unsupported file type for '{file.filename}'. Supported formats: PDF, DOCX, XLSX, PPTX, TXT, MD."
             )
 

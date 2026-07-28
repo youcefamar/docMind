@@ -1,10 +1,10 @@
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
 
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 from services.embedder import EmbeddingService
-from services.retriever import VectorStoreService
 from services.llm import LLMService
+from services.retriever import VectorStoreService
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -45,7 +45,7 @@ async def ask_question(request: AskRequest):
     try:
         # 1. Embed query text
         query_embeddings = embedder_service.generate_embeddings([request.question])
-        
+
         # 2. Retrieve top matching chunks from ChromaDB
         sources = retriever_service.search(
             query_embedding=query_embeddings,

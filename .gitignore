@@ -10,6 +10,7 @@ backend/*/__pycache__/
 backend/*.pyc
 backend/.venv/
 backend/venv/
+backend/.coverage
 backend/models/*.gguf
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/

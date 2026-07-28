@@ -1,6 +1,6 @@
-import os
 import json
-from typing import List, Dict, Any, Tuple
+import os
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from llama_cpp import Llama
@@ -76,9 +76,9 @@ class LLMService:
                 print(f"[LLM] Error loading local GGUF model: {e}")
 
     def generate_answer(
-        self, 
-        question: str, 
-        sources: List[Dict[str, Any]], 
+        self,
+        question: str,
+        sources: List[Dict[str, Any]],
         chat_history: List[Dict[str, str]] = None
     ) -> Tuple[str, float, str]:
         if not sources or len(sources) == 0:
@@ -99,7 +99,7 @@ class LLMService:
                 f"Page: {src.get('page_number')}\n"
                 f"Content:\n{src.get('excerpt')}\n"
             )
-        
+
         context_str = "\n".join(context_blocks)
 
         system_prompt = (

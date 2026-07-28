@@ -1,8 +1,9 @@
 import os
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from pgvector.psycopg2 import register_vector
+from psycopg2.extras import RealDictCursor
 
 # PostgreSQL Connection details from environment variables
 PG_HOST = os.getenv("POSTGRES_HOST", "localhost")
@@ -13,9 +14,12 @@ PG_DB = os.getenv("POSTGRES_DB", "docmind_db")
 PG_URL = os.getenv("DATABASE_URL", f"postgresql://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}")
 
 class VectorStoreService:
-    def __init__(self, connection_url: str = PG_URL):
+    def __init__(self, connection_url: str = PG_URL, initialize: Optional[bool] = None):
         self.connection_url = connection_url
-        self._init_db()
+        if initialize is None:
+            initialize = os.getenv("DOCMIND_INIT_LEGACY_DB", "false").lower() == "true"
+        if initialize:
+            self._init_db()
 
     def _get_connection(self):
         conn = psycopg2.connect(self.connection_url)
@@ -32,7 +36,7 @@ class VectorStoreService:
             with conn.cursor() as cur:
                 # 1. Enable pgvector extension
                 cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                
+
                 # 2. Create chunks table with vector(384) column
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS doc_chunks (
@@ -51,7 +55,7 @@ class VectorStoreService:
 
                 # 3. Create index for fast vector search if not exists
                 cur.execute("""
-                    CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx 
+                    CREATE INDEX IF NOT EXISTS doc_chunks_embedding_idx
                     ON doc_chunks USING hnsw (embedding vector_cosine_ops);
                 """)
             conn.close()
@@ -93,9 +97,9 @@ class VectorStoreService:
             conn.close()
 
     def search(
-        self, 
-        query_embedding: List[List[float]], 
-        category: Optional[str] = None, 
+        self,
+        query_embedding: List[List[float]],
+        category: Optional[str] = None,
         top_k: int = 4
     ) -> List[Dict[str, Any]]:
         """
@@ -105,10 +109,11 @@ class VectorStoreService:
             return []
 
         emb_vector = query_embedding[0]
-        conn = self._get_connection()
+        conn = None
         sources = []
 
         try:
+            conn = self._get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 if category and category.lower() != "all":
                     query = """
@@ -144,7 +149,8 @@ class VectorStoreService:
         except Exception as e:
             print(f"[pgvector Search Error] {e}")
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
         return sources
 
@@ -152,10 +158,11 @@ class VectorStoreService:
         """
         Lists unique uploaded PDF documents from pgvector.
         """
-        conn = self._get_connection()
+        conn = None
         summary = []
 
         try:
+            conn = self._get_connection()
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 query = """
                     SELECT doc_id AS id,
@@ -172,7 +179,8 @@ class VectorStoreService:
         except Exception as e:
             print(f"[pgvector List Docs Error] {e}")
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
         return summary
 
@@ -180,15 +188,17 @@ class VectorStoreService:
         """
         Deletes all chunks of doc_id from pgvector.
         """
-        conn = self._get_connection()
+        conn = None
         deleted_count = 0
 
         try:
+            conn = self._get_connection()
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM doc_chunks WHERE doc_id = %s;", (doc_id,))
                 deleted_count = cur.rowcount
             conn.commit()
         finally:
-            conn.close()
+            if conn:
+                conn.close()
 
         return deleted_count

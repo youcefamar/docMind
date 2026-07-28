@@ -1,14 +1,13 @@
-import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-from routes.chat import router as chat_router
-from routes.documents import router as docs_router
-from routes.models import router as models_router
+from routes.chat import router as chat_router  # noqa: E402
+from routes.documents import router as docs_router  # noqa: E402
+from routes.models import router as models_router  # noqa: E402
 
 app = FastAPI(
     title="DocMind API",

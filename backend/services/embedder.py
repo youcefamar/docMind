@@ -1,7 +1,8 @@
-import io
-import uuid
 import datetime
-from typing import List, Dict, Any, Optional
+import io
+import re
+import uuid
+from typing import Any, Dict, List, Optional
 
 import pypdf
 
@@ -23,11 +24,12 @@ except ImportError:
 
 try:
     from sentence_transformers import SentenceTransformer
-    EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-    _model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-except Exception as e:
-    print(f"[Embedder] Notice: SentenceTransformer init deferred: {e}")
-    _model = None
+except ImportError:
+    SentenceTransformer = None
+
+# Retained for the legacy pgvector path. P2 will replace it with the frozen
+# Qwen3-Embedding-0.6B model behind the same service interface.
+EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
 
 class DocumentProcessor:
@@ -36,9 +38,9 @@ class DocumentProcessor:
         self.overlap = overlap
 
     def extract_chunks(
-        self, 
-        file_bytes: bytes, 
-        filename: str, 
+        self,
+        file_bytes: bytes,
+        filename: str,
         category: str = "General",
         doc_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
@@ -132,8 +134,7 @@ class DocumentProcessor:
         return sheets_text
 
     def _clean_text(self, text: str) -> str:
-        lines = [line.strip() for line in text.splitlines()]
-        return " ".join(line for line in lines if line)
+        return re.sub(r"\s+", " ", text).strip()
 
     def _chunk_text(self, text: str) -> List[str]:
         if len(text) <= self.chunk_size:
@@ -146,7 +147,7 @@ class DocumentProcessor:
         while start < text_len:
             end = start + self.chunk_size
             chunk = text[start:end]
-            
+
             if end < text_len:
                 last_space = chunk.rfind(" ")
                 if last_space > self.chunk_size // 2:
@@ -164,8 +165,22 @@ PDFProcessor = DocumentProcessor
 
 
 class EmbeddingService:
-    def __init__(self):
-        self.model = _model
+    def __init__(
+        self,
+        model: Optional[Any] = None,
+        model_name: str = EMBEDDING_MODEL_NAME,
+        embedding_dimension: int = 384,
+    ):
+        """Create an embedding service without network/model-load side effects.
+
+        Loading a Hugging Face model at module import made offline startup hang
+        while waiting for a cache or network response. The production model
+        will be loaded explicitly during P2 index startup; tests and the
+        current legacy path use the deterministic fallback until then.
+        """
+        self.model = model
+        self.model_name = model_name
+        self.embedding_dimension = embedding_dimension
 
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         if self.model is not None:
@@ -174,9 +189,11 @@ class EmbeddingService:
         else:
             return [self._fallback_vector(t) for t in texts]
 
-    def _fallback_vector(self, text: str, dim: int = 384) -> List[float]:
+    def _fallback_vector(self, text: str, dim: Optional[int] = None) -> List[float]:
         import hashlib
         import math
+
+        dim = dim or self.embedding_dimension
         vec = []
         for i in range(dim):
             h = hashlib.sha256(f"{text}_{i}".encode('utf-8')).hexdigest()

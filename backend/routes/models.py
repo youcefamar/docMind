@@ -1,9 +1,8 @@
-import os
 import json
+import os
 import urllib.request
-import asyncio
-from typing import List, Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/models", tags=["Models"])
@@ -118,7 +117,7 @@ async def select_active_model(request: SelectModelRequest):
     file_path = os.path.join(MODELS_DIR, target_model["filename"])
     if not os.path.exists(file_path):
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Model file '{target_model['filename']}' is not downloaded yet. Download it first via POST /api/models/download."
         )
 

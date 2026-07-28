@@ -1,9 +1,16 @@
+import logging
+import os
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Load environment variables
 load_dotenv()
+logging.basicConfig(
+    level=os.getenv("DOCMIND_LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 from routes.chat import router as chat_router  # noqa: E402
 from routes.documents import router as docs_router  # noqa: E402

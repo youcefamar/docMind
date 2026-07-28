@@ -34,6 +34,13 @@ The service performs no download and makes no hosted API call. If the model
 file is absent, a deterministic extractive fallback is used for development;
 this fallback must not be used for measured CV performance claims.
 
+## Terminal observability
+
+Each `POST /api/ask` writes stage logs containing the retrieval profile, source
+count, citation count, active LLM backend, and retrieval/generation/total
+latencies. Question text is hidden by default. Use `DOCMIND_LOG_QUERIES=true`
+for local debugging when printing the question is acceptable.
+
 ## Model download API
 
 The model registry in `backend/models/models_config.json` points to the

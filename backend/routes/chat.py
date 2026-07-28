@@ -1,3 +1,6 @@
+import logging
+import os
+import time
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
@@ -9,6 +12,7 @@ from services.retriever import VectorStoreService
 from services.runtime import dense_index, quality_retriever
 
 router = APIRouter(prefix="/api", tags=["Chat"])
+logger = logging.getLogger("docmind.chat")
 
 
 class ChatMessage(BaseModel):
@@ -83,6 +87,15 @@ def _dense_sources(question: str, category: Optional[str], top_k: int) -> list[d
 
 @router.post("/ask", response_model=AskResponse)
 async def ask_question(request: AskRequest):
+    started_at = time.perf_counter()
+    log_question = os.getenv("DOCMIND_LOG_QUERIES", "false").lower() == "true"
+    question_marker = request.question if log_question else "<hidden>"
+    logger.info(
+        "[ASK] received profile=%s category=%s question=%s",
+        request.retrieval_profile.value,
+        request.category,
+        question_marker,
+    )
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     if request.retrieval_profile is RetrievalProfile.QUALITY and (
@@ -94,6 +107,7 @@ async def ask_question(request: AskRequest):
         )
 
     try:
+        retrieval_started_at = time.perf_counter()
         if request.retrieval_profile is RetrievalProfile.QUALITY:
             quality_results = quality_retriever.search(
                 request.question,
@@ -134,12 +148,31 @@ async def ask_question(request: AskRequest):
                 category=request.category,
                 top_k=5,
             )
+        retrieval_ms = (time.perf_counter() - retrieval_started_at) * 1000
+        logger.info(
+            "[ASK] retrieval profile=%s sources=%d elapsed_ms=%.1f dense_ready=%s",
+            request.retrieval_profile.value,
+            len(sources),
+            retrieval_ms,
+            bool(dense_index and dense_index.model_ready),
+        )
+        for source in sources:
+            logger.info(
+                "[ASK] source rank=%s file=%s location=%s:%s score=%.3f",
+                source.get("rank"),
+                source.get("filename"),
+                source.get("location_type", "page"),
+                source.get("location_value", source.get("page_number", "1")),
+                float(source.get("similarity", 0.0)),
+            )
 
+        generation_started_at = time.perf_counter()
         answer, confidence_score, confidence_label = llm_service.generate_answer(
             question=request.question,
             sources=sources,
             chat_history=request.chat_history,
         )
+        generation_ms = (time.perf_counter() - generation_started_at) * 1000
         citations = [
             {
                 "source_id": citation.source_id,
@@ -153,6 +186,19 @@ async def ask_question(request: AskRequest):
             }
             for citation in validate_citations(answer, sources)
         ]
+        total_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "[ASK] completed sources=%d citations=%d confidence=%s llm_backend=%s "
+            "llm_ready=%s retrieval_ms=%.1f generation_ms=%.1f total_ms=%.1f",
+            len(sources),
+            len(citations),
+            confidence_label,
+            getattr(llm_service, "backend", "unknown"),
+            getattr(llm_service, "model_ready", False),
+            retrieval_ms,
+            generation_ms,
+            total_ms,
+        )
 
         return AskResponse(
             answer=answer,
@@ -163,5 +209,5 @@ async def ask_question(request: AskRequest):
             retrieval_profile=request.retrieval_profile,
         )
     except Exception as error:
-        print(f"[API Chat Error] {error}")
+        logger.exception("[ASK] failed after %.1f ms: %s", (time.perf_counter() - started_at) * 1000, error)
         raise HTTPException(status_code=500, detail=f"Error processing question: {error}") from error

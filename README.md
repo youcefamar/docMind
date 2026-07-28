@@ -161,6 +161,10 @@ Set `DOCMIND_LLM_MODEL_PATH` to a cached Qwen3-4B instruct GGUF file. No hosted
 LLM or API key is required. Without weights, development uses a deterministic
 extractive fallback; do not use that fallback for measured quality claims.
 
+The backend logs each question's retrieval profile, source count, citation
+count, model backend, and stage latency in the terminal. Set
+`DOCMIND_LOG_QUERIES=true` only when you also want the question text printed.
+
 ### 2. Upload Document
 `POST /api/upload` (Form Data)
 - `files`: File list (`.pdf`, `.docx`, `.pptx`, `.xlsx`, `.xls`, `.txt`, `.md`)

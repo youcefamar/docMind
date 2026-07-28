@@ -244,3 +244,7 @@ Run `backend/scripts/profile_local.py` to measure local model loading, query
 embedding, FAISS/BM25/RRF retrieval, optional reranking, generation, end-to-end
 latency, artifact sizes, and peak CPU memory. The methodology and the first
 CPU-only measurements are recorded in [docs/p6-local-profiling.md](docs/p6-local-profiling.md).
+For a safe full-corpus run, use `--full-corpus --isolated-indexes
+--rebuild-indexes`; the profile writes temporary FAISS/BM25 artifacts under
+`data/profiling/runs/` and leaves the active indexes unchanged. Add
+`--reranker-path` only when the BGE reranker is available locally.

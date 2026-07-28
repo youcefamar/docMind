@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import os
 import platform
 import statistics
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
@@ -54,6 +56,21 @@ def _resolve_path(value: str | None, fallback: Path) -> Path:
         if resolved.exists():
             return resolved
     return fallback.resolve()
+
+
+def _resolve_output_path(value: str | None, fallback: Path) -> Path:
+    """Resolve an output path even when the file does not exist yet."""
+    if not value:
+        return fallback.resolve()
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate.resolve()
+    bases = (Path.cwd(), REPO_ROOT, REPO_ROOT / "backend")
+    for base in bases:
+        resolved = (base / candidate).resolve()
+        if resolved.parent.exists():
+            return resolved
+    return (Path.cwd() / candidate).resolve()
 
 
 def _size_bytes(path: Path) -> int:
@@ -137,6 +154,29 @@ def _artifact(path: Path, kind: str) -> dict[str, Any]:
     }
 
 
+def _corpus_summary(metadata_store: MetadataStore) -> dict[str, Any]:
+    """Describe the corpus that was actually available to the profile."""
+    documents = metadata_store.list_documents()
+    status_counts = Counter(document.status.value for document in documents)
+    failures = [
+        {
+            "filename": document.filename,
+            "status": document.status.value,
+            "error_detail": document.error_detail,
+        }
+        for document in documents
+        if document.error_detail
+    ]
+    return {
+        "document_count": len(documents),
+        "chunk_count": sum(document.chunk_count for document in documents),
+        "page_count": sum(document.total_pages for document in documents),
+        "status_counts": dict(sorted(status_counts.items())),
+        "failure_count": len(failures),
+        "failures": failures,
+    }
+
+
 def _source_dict(result: RetrievalResult, metadata_store: MetadataStore) -> dict[str, Any]:
     document = metadata_store.get_document(result.document_id)
     return {
@@ -169,21 +209,59 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Limit rebuild scope for a bounded experiment; 0 uses every stored chunk",
     )
+    parser.add_argument(
+        "--full-corpus",
+        action="store_true",
+        help="Require an explicit full-corpus rebuild; cannot be combined with limits",
+    )
+    parser.add_argument(
+        "--isolated-indexes",
+        action="store_true",
+        help="Build profiling indexes under data/profiling/runs instead of replacing active indexes",
+    )
+    parser.add_argument(
+        "--profile-run-dir",
+        help="Resume an existing isolated profiling run directory",
+    )
     parser.add_argument("--index-batch-size", type=int, default=32)
     parser.add_argument("--document-id", help="Restrict a rebuild to one stored document")
+    parser.add_argument("--reranker-path", help="Override DOCMIND_RERANKER_MODEL_PATH for this run")
     parser.add_argument("--skip-generation", action="store_true")
+    parser.add_argument(
+        "--skip-llm-load",
+        action="store_true",
+        help="Do not load the local generator (requires --skip-generation)",
+    )
     parser.add_argument("--output", help="JSON output path (default: data/profiling/profile_local.json)")
     return parser
 
 
 def main() -> int:
     args = _build_parser().parse_args()
+    logging.basicConfig(
+        level=os.getenv("DOCMIND_LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    if args.full_corpus and not args.rebuild_indexes:
+        raise SystemExit("--full-corpus requires --rebuild-indexes")
+    if args.full_corpus and args.max_index_chunks > 0:
+        raise SystemExit("--full-corpus cannot be combined with --max-index-chunks")
+    if args.full_corpus and args.document_id:
+        raise SystemExit("--full-corpus cannot be restricted with --document-id")
+    if args.full_corpus and not args.isolated_indexes:
+        raise SystemExit("--full-corpus requires --isolated-indexes so active indexes remain untouched")
+    if args.isolated_indexes and not args.rebuild_indexes:
+        raise SystemExit("--isolated-indexes requires --rebuild-indexes")
+    if args.profile_run_dir and not args.isolated_indexes:
+        raise SystemExit("--profile-run-dir requires --isolated-indexes")
+    if args.skip_llm_load and not args.skip_generation:
+        raise SystemExit("--skip-llm-load requires --skip-generation")
     repetitions = max(1, args.repetitions)
     data_dir = _resolve_path(args.data_dir or os.getenv("DOCMIND_DATA_DIR"), REPO_ROOT / "data")
     source_dir = _resolve_path(
         args.source_dir or os.getenv("DOCMIND_SOURCE_DIR"), data_dir / "knowledge"
     )
-    output_path = _resolve_path(args.output, data_dir / "profiling" / "profile_local.json")
+    output_path = _resolve_output_path(args.output, data_dir / "profiling" / "profile_local.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     process_started = time.perf_counter()
     memory_samples: list[float] = []
@@ -208,6 +286,18 @@ def main() -> int:
         notes.append("No local embedding weights were found; embedding timings use the deterministic fallback.")
 
     metadata_store = MetadataStore(data_dir / "metadata.sqlite")
+    run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + f"-{os.getpid()}"
+    index_root = data_dir / "indexes"
+    if args.isolated_indexes:
+        if args.profile_run_dir:
+            profile_run_dir = _resolve_path(args.profile_run_dir, REPO_ROOT / "missing-profile-run")
+            if not profile_run_dir.is_dir():
+                raise SystemExit(f"Profiling run directory does not exist: {args.profile_run_dir}")
+        else:
+            profile_run_dir = data_dir / "profiling" / "runs" / run_id
+        run_id = profile_run_dir.name
+        index_root = profile_run_dir / "indexes"
+        notes.append(f"Profiling indexes are isolated under {index_root} and will not replace active indexes.")
     embedding_service = QwenEmbeddingService()
     model_load_ms: dict[str, dict[str, Any]] = {}
     if artifacts["embedding_model"]["exists"]:
@@ -226,9 +316,10 @@ def main() -> int:
         model_load_ms["embedding"] = {"elapsed_ms": 0.0, "backend": "deterministic-fallback", "ready": False}
     memory_samples.append(_rss_mb() or 0.0)
 
-    dense_index = DenseIndexService(data_dir / "indexes" / "fast", embedding_service, metadata_store)
-    bm25_index = BM25IndexService(data_dir / "indexes" / "quality", metadata_store)
+    dense_index = DenseIndexService(index_root / "fast", embedding_service, metadata_store)
+    bm25_index = BM25IndexService(index_root / "quality", metadata_store)
     ingestion_service = DocumentIngestionService(data_dir, metadata_store=metadata_store)
+    corpus_before_sync = _corpus_summary(metadata_store)
     sync_status = None
     if args.sync:
         sync_service = FolderSyncService(source_dir, ingestion_service, metadata_store=metadata_store)
@@ -236,11 +327,13 @@ def main() -> int:
         sync_status = sync_service.sync()
         sync_status["elapsed_ms"] = round((time.perf_counter() - sync_started) * 1000, 3)
         memory_samples.append(_rss_mb() or 0.0)
+    corpus_after_sync = _corpus_summary(metadata_store)
 
     index_build = {"dense_chunks": len(dense_index.chunk_ids), "lexical_chunks": len(bm25_index.chunk_ids)}
     if args.rebuild_indexes:
         started = time.perf_counter()
-        chunks = metadata_store.list_chunks()
+        all_chunks = metadata_store.list_chunks()
+        chunks = all_chunks
         if args.document_id:
             chunks = metadata_store.get_chunks(args.document_id)
             if not chunks:
@@ -251,9 +344,19 @@ def main() -> int:
             notes.append(
                 f"Index rebuild was limited to {len(chunks)} chunks; retrieval latency is not a full-corpus measurement."
             )
+        if args.full_corpus and len(chunks) != len(all_chunks):
+            raise SystemExit(
+                f"Full-corpus profile expected {len(all_chunks)} chunks but selected {len(chunks)}."
+            )
+        print(
+            f"[P6.2] corpus documents={corpus_after_sync['document_count']} "
+            f"chunks={len(all_chunks)} selected_chunks={len(chunks)} "
+            f"scope={'full' if len(chunks) == len(all_chunks) else 'limited'}",
+            flush=True,
+        )
         def report_index_progress(completed: int, total: int, elapsed_ms: float, resumed: bool) -> None:
             print(
-                f"[P6] dense index {completed}/{total} chunks "
+                f"[P6.2] dense index {completed}/{total} chunks "
                 f"elapsed_ms={elapsed_ms:.0f} resumed={resumed}",
                 flush=True,
             )
@@ -261,14 +364,20 @@ def main() -> int:
         dense_count = dense_index.rebuild_batched(
             chunks,
             batch_size=max(1, args.index_batch_size),
-            checkpoint_path=data_dir / "indexes" / "fast" / "dense_rebuild.checkpoint.json",
+            checkpoint_path=index_root / "fast" / "dense_rebuild.checkpoint.json",
             progress_callback=report_index_progress,
         )
         bm25_count = bm25_index.rebuild(chunks)
         index_build = {
             "dense_chunks": dense_count,
             "lexical_chunks": bm25_count,
-            "scope": "limited" if args.max_index_chunks > 0 else "full",
+            "scope": (
+                "document"
+                if args.document_id
+                else "limited"
+                if args.max_index_chunks > 0
+                else "full"
+            ),
             "batch_size": max(1, args.index_batch_size),
             "elapsed_ms": round((time.perf_counter() - started) * 1000, 3),
         }
@@ -276,7 +385,8 @@ def main() -> int:
 
     reranker = LocalReranker()
     reranker_path = _resolve_path(
-        os.getenv("DOCMIND_RERANKER_MODEL_PATH"), REPO_ROOT / "missing-reranker-model"
+        args.reranker_path or os.getenv("DOCMIND_RERANKER_MODEL_PATH"),
+        REPO_ROOT / "missing-reranker-model",
     )
     reranker_load = {"ready": False, "backend": "not_configured", "elapsed_ms": 0.0}
     if reranker_path.is_dir() and any(reranker_path.iterdir()):
@@ -293,13 +403,19 @@ def main() -> int:
             notes.append(f"Reranker load failed: {error}")
 
     llm_load_started = time.perf_counter()
-    llm_service = LLMService(model_path=str(llm_path) if llm_path.is_file() else "", auto_load=True)
+    llm_service = LLMService(
+        model_path=str(llm_path) if llm_path.is_file() else "",
+        auto_load=not args.skip_llm_load,
+    )
     model_load_ms["llm"] = {
         "elapsed_ms": round((time.perf_counter() - llm_load_started) * 1000, 3),
         "backend": llm_service.backend,
         "ready": llm_service.model_ready,
         "model_name": llm_service.model_name,
     }
+    if args.skip_llm_load:
+        model_load_ms["llm"]["backend"] = "not_loaded"
+        notes.append("Local generator loading was skipped for this retrieval/indexing profile.")
     memory_samples.append(_rss_mb() or 0.0)
     if not llm_service.model_ready:
         notes.append("Local GGUF generation was unavailable; generation timing uses the extractive fallback.")
@@ -414,10 +530,16 @@ def main() -> int:
         notes.append("Generation was not measured because no retrieval results were available.")
 
     index_files = [
-        data_dir / "indexes" / "fast" / "dense.faiss",
-        data_dir / "indexes" / "fast" / "dense_mapping.json",
-        data_dir / "indexes" / "quality" / "bm25.json",
+        index_root / "fast" / "dense.faiss",
+        index_root / "fast" / "dense_mapping.json",
+        index_root / "quality" / "bm25.json",
     ]
+    reranker_benchmark = {
+        "enabled": reranker.is_ready,
+        "candidate_count": len(candidates),
+        "model_name": reranker.model_name if reranker.is_ready else None,
+        "stages": stages["reranker"],
+    }
     result = {
         "schema_version": 1,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -439,6 +561,10 @@ def main() -> int:
             "embedding_backend": "local" if embedding_service.is_ready else "deterministic-fallback",
             "llm_backend": llm_service.backend,
             "reranker_backend": reranker_load["backend"],
+            "index_root": str(index_root),
+            "profile_run_id": run_id,
+            "full_corpus_requested": args.full_corpus,
+            "isolated_indexes": args.isolated_indexes,
         },
         "artifacts": artifacts,
         "model_download": {
@@ -447,8 +573,13 @@ def main() -> int:
         },
         "model_load": model_load_ms | {"reranker": reranker_load},
         "sync": sync_status,
+        "corpus": {
+            "before_sync": corpus_before_sync,
+            "after_sync": corpus_after_sync,
+        },
         "index": index_build | {"files": [_artifact(path, "file") for path in index_files]},
         "stages": stages,
+        "reranker_benchmark": reranker_benchmark,
         "profiles": profile_results,
         "generation": generation,
         "end_to_end": end_to_end,

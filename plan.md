@@ -484,6 +484,25 @@ first CPU-only measurements are recorded in `docs/p6-local-profiling.md`.
 Dense rebuilds now run in persisted batches with restart checkpoints, and
 folder synchronization exposes per-file extraction failures for diagnosis.
 
+#### P6.1 — component and warm-query profiling — implemented
+
+- [x] measure local model artifacts and load time;
+- [x] measure query embedding, FAISS, BM25, RRF, generation, and end-to-end latency;
+- [x] record peak process RSS and distinguish CPU laptop results from Kaggle GPU results;
+- [x] persist resumable dense-index checkpoints and bounded profiling output.
+
+#### P6.2 — safe full-corpus profile and optional reranker benchmark — tooling implemented
+
+- [x] require an explicit `--full-corpus` flag for an unbounded rebuild;
+- [x] build full-corpus profiling indexes in an isolated run directory;
+- [x] report document, chunk, page, status, and extraction-failure counts;
+- [x] expose an optional local reranker path and record candidate count and latency;
+- [x] run an isolated feasibility pass and record the measured first-batch cost;
+- [ ] complete the full-corpus run after indexing throughput is optimized for the target laptop.
+
+The isolated profile cannot replace the active application indexes. This keeps a
+long CPU measurement or interrupted rebuild from taking the chatbot offline.
+
 Run the integrated application on the target laptop and measure components separately:
 
 - model download and disk size;
@@ -655,7 +674,7 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Profile the integrated system on the target laptop with real cached model weights.
+1. Run the isolated P6.2 full-corpus profile on the target laptop with real cached model weights.
 2. Run P7 hardening checks before portfolio claims.
 3. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

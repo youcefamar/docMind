@@ -37,6 +37,61 @@ Dense rebuilds persist after each batch to
 resumes from the last completed batch; changing the stored chunks automatically
 invalidates that checkpoint.
 
+## P6.2 — full-corpus and reranker profile
+
+P6.2 makes the full-corpus scope explicit and protects the active application
+indexes. Run this from `backend/` for a retrieval/indexing profile:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/profile_local.py `
+  --full-corpus --isolated-indexes --rebuild-indexes `
+  --profile both --repetitions 3 --skip-generation --skip-llm-load
+```
+
+The command reads every stored chunk, writes FAISS and BM25 files below
+`data/profiling/runs/<run-id>/indexes`, and leaves `data/indexes/` unchanged.
+It prints progress as `[P6.2]` batches and records the corpus document/chunk/page
+counts, document status counts, extraction failures, index scope, and isolated
+index path in the JSON report. `--full-corpus` intentionally rejects chunk
+limits and document-only rebuilds.
+
+If the BGE reranker has been downloaded locally, include either
+`--reranker-path "C:\\models\\bge-reranker-v2-m3"` or set
+`DOCMIND_RERANKER_MODEL_PATH`. The report then includes a reranker benchmark
+with the candidate count and warm latency distribution. Without local weights,
+the report records `not_configured`; it must not be presented as a reranker
+measurement.
+
+For a retrieval-only run, `--skip-generation --skip-llm-load` avoids loading the
+4B generator and keeps the full-corpus memory measurement focused on extraction,
+embedding, and retrieval. Generation latency remains covered by the P6.1
+component profile.
+
+### P6.2 feasibility result on the current local corpus
+
+The stored catalog contained **36 documents and 1,325 extracted chunks** when
+the isolated run started. The first 32-chunk embedding batch took **185,127 ms**
+on the four-core CPU and the worker used approximately **1.63 GB** of working
+memory. That projects to roughly **2.1 hours** for the complete rebuild at the
+observed rate, before retrieval repetitions. The run was stopped after the first
+completed batch to keep the laptop usable; its checkpoint remains under the
+isolated `data/profiling/runs/<run-id>/` directory for a deliberate resume.
+
+Resume that exact run (after deciding to spend the required time) by passing its
+run directory, for example:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/profile_local.py `
+  --full-corpus --isolated-indexes --rebuild-indexes `
+  --profile-run-dir "data/profiling/runs/20260728T180540Z-552" `
+  --profile both --repetitions 3 --skip-generation --skip-llm-load
+```
+
+This is a deployment constraint, not a completed full-corpus latency result. The
+active `data/indexes/` files were not modified. The next optimization should be
+background/incremental indexing or a faster CPU embedding runtime before claiming
+full-corpus P6.2 timings.
+
 ## Measurement captured on 2026-07-28
 
 The first completed end-to-end run used the existing 19-chunk indexed corpus.

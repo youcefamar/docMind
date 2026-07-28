@@ -149,15 +149,15 @@ generation:
   language_policy: same_as_question
 ```
 
-This configuration is frozen for the remaining TEST and no-answer evaluations. Weaknesses discovered after freezing must be recorded as limitations rather than fixed by retuning the experiment.
+This configuration was frozen for the final TEST and no-answer evaluations. Weaknesses discovered after freezing were recorded as limitations rather than fixed by retuning the experiment.
 
-## 5. Remaining research v1 tasks
+## 5. Research v1 closeout
 
-Only the following tasks remain before research v1 is closed.
+The final research tasks are complete. Research v1 is now closed and no further model-selection work is required before product integration.
 
-### R4.1 — locked 12-question TEST
+### R4.1 — locked 12-question TEST — completed
 
-Run the existing 12-question answerable TEST set exactly once with the frozen configuration.
+The existing 12-question answerable TEST set was run exactly once with the frozen configuration.
 
 Report retrieval metrics:
 
@@ -165,6 +165,13 @@ Report retrieval metrics:
 - EvidenceRecall@3
 - EvidenceRecall@5
 - CompleteEvidence@5
+
+Recorded results:
+
+- EvidenceRecall@1: `0.7500`
+- EvidenceRecall@3: `1.0000`
+- EvidenceRecall@5: `1.0000`
+- CompleteEvidence@5: `1.0000`
 
 Freeze the resulting top-5 TEST contexts and run Qwen3-4B generation over them.
 
@@ -182,9 +189,9 @@ Report:
 
 Do not use TEST results to change the configuration.
 
-### R4.2 — four no-answer questions
+### R4.2 — four no-answer questions — completed
 
-Run the existing four no-answer questions with the same frozen stack.
+The existing four no-answer questions were run with the same frozen stack.
 
 Measure:
 
@@ -193,9 +200,16 @@ Measure:
 - citation presence on unsupported answers;
 - unsupported-citation rate.
 
+Recorded results:
+
+- refusal accuracy: `4/4`
+- false-answer rate: `0/4`
+- unsupported-citation rate: `0/4`
+- French refusal-language issues: `2/4`
+
 Manually inspect all four raw answers. The current prompt may contain a conflict between the fixed refusal wording and the same-language response policy, so the report must describe observed behavior without changing the frozen prompt.
 
-### R4.3 — close research v1
+### R4.3 — close research v1 — completed
 
 Update the final research report with:
 
@@ -216,7 +230,7 @@ Update the final research report with:
 - no-answer results;
 - known limitations.
 
-When these results are recorded, mark research v1 complete and stop model-selection work.
+The final report contains the frozen TEST and no-answer results. Research v1 is complete; subsequent work belongs to product integration or future feature validation.
 
 ## 6. Product v1 architecture
 
@@ -604,7 +618,7 @@ After product integration, documentation must include:
 - known limitations and future features;
 - deployment notes for a local shared server.
 
-Suggested CV statement, to be updated with final TEST and local profiling numbers:
+Suggested CV statement, to be updated with local profiling numbers:
 
 > Built and evaluated an offline RAG assistant for heterogeneous internal documents, comparing token-aware chunking, multilingual embeddings, BM25/dense hybrid retrieval, reranking, and quantized local LLMs; integrated Fast and Quality retrieval profiles with local generation, validated citations, and measured CPU deployment performance.
 
@@ -612,12 +626,8 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Run the frozen 12-question TEST exactly once.
-2. Run and manually inspect the four no-answer questions.
-3. Append both results to the final research report.
-4. Mark research v1 complete.
-5. Begin product milestone P0: audit the current backend/API/frontend contracts.
-6. Implement P1–P5 in small feature-branch changes.
-7. Profile the integrated system on the target laptop.
-8. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
+1. Begin product milestone P0: audit the current backend/API/frontend contracts.
+2. Implement P1–P5 in small feature-branch changes.
+3. Profile the integrated system on the target laptop.
+4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

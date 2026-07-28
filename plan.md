@@ -440,14 +440,18 @@ requires setting `DOCMIND_EMBEDDING_MODEL_PATH` to a cached local model.
 Runtime reranker profiling remains a P6 deployment check; Quality mode falls
 back to RRF ordering when local BGE weights are not configured.
 
-### P4 — local generation and citations
+### P4 — local generation and citations — implemented
 
-- implement the local Qwen3-4B runtime adapter;
-- remove hosted inference as a requirement;
-- assemble deterministic source-labelled prompts;
-- validate model-produced citation labels;
-- implement insufficient-evidence behavior;
-- return source metadata through the existing API contract or a backward-compatible extension.
+- [x] implement the local Qwen3-4B GGUF runtime adapter;
+- [x] remove hosted inference as a requirement;
+- [x] assemble deterministic source-labelled prompts;
+- [x] validate model-produced citation labels;
+- [x] implement insufficient-evidence behavior;
+- [x] return validated citation metadata through a backward-compatible API extension.
+
+P4 uses `llama-cpp-python` with a cached local GGUF file configured through
+`DOCMIND_LLM_MODEL_PATH`. Missing weights use a deterministic extractive
+fallback for development only; no cloud provider is contacted.
 
 ### P5 — API and frontend integration
 
@@ -632,8 +636,8 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Begin product milestone P4: integrate local Qwen3-4B generation and citation validation.
-2. Keep P5 frontend integration behind the same retrieval and citation contracts.
-3. Profile the integrated system on the target laptop.
+1. Begin product milestone P5: connect frontend states to the retrieval and citation contracts.
+2. Profile the integrated system on the target laptop with real cached model weights.
+3. Run P7 hardening checks before portfolio claims.
 4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

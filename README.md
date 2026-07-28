@@ -3,9 +3,9 @@
 > **Problem**: Employees waste hours searching through bulky PDFs.  
 > **Solution**: DocMind allows employees to ask questions in plain natural language and receive instant, grounded answers accompanied by exact source document citations and page numbers.
 
-> **Current implementation status:** Research v1 is complete. P1 now provides
-> offline local ingestion and metadata persistence; FAISS/BM25 retrieval and
-> local Qwen generation are the next milestones.
+> **Current implementation status:** Research v1 and backend milestones P1–P4
+> are implemented. The backend ingests local documents, retrieves with Fast or
+> Quality profiles, and generates locally with grounded citation validation.
 
 ---
 
@@ -56,7 +56,7 @@ docmind/
 │   │   ├── dense_index.py    # Persistent FAISS Fast retrieval
 │   │   ├── runtime.py        # Shared local runtime services
 │   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
-│   │   └── llm.py            # Local GGUF adapter (P4 replacement)
+│   │   └── llm.py            # Local Qwen GGUF generation + citation validation
 │   ├── models/contracts.py   # Shared ingestion/retrieval/citation contracts
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -74,12 +74,12 @@ docmind/
 
 - [x] **Week 1 — Core RAG Pipeline (Notebook Prototype)**
   - PDF loading via `pypdf` -> Chunking -> Vector embedding via `sentence-transformers` -> Indexing in ChromaDB.
-  - Query ChromaDB -> Retrieve top matching chunks -> Synthesize answer with Groq LLM -> Citation extraction.
+  - Query ChromaDB -> Retrieve top matching chunks -> Synthesize answer with a prototype LLM -> Citation extraction.
   - Notebook available in `notebooks/rag_pipeline_demo.ipynb`.
 
 - [x] **Week 2 — FastAPI Backend Services**
   - `POST /api/upload`: Validate and store PDF, DOCX, PPTX, XLSX, XLS, TXT, and MD files locally, extract chunks, and persist metadata.
-  - `POST /api/ask`: Takes question + chat history + category filter, retrieves sources, calls Groq LLM, assesses confidence.
+  - `POST /api/ask`: Takes question + chat history + category filter, retrieves sources, calls the local generation service, and assesses confidence.
   - `GET /api/docs`: Catalogs uploaded documents with page and chunk metrics.
   - `DELETE /api/doc/{id}`: Removes document vectors cleanly from vector store.
 
@@ -151,6 +151,15 @@ docker-compose up --build -d
   ]
 }
 ```
+
+`retrieval_profile` can be `fast` (dense FAISS) or `quality` (dense + BM25 +
+RRF and optional local BGE reranking). The response includes `sources` and
+validated `citations` such as `[S1]`. If evidence is missing, the local runtime
+returns `I don't know based on the provided documents.`
+
+Set `DOCMIND_LLM_MODEL_PATH` to a cached Qwen3-4B instruct GGUF file. No hosted
+LLM or API key is required. Without weights, development uses a deterministic
+extractive fallback; do not use that fallback for measured quality claims.
 
 ### 2. Upload Document
 `POST /api/upload` (Form Data)

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from models.contracts import RetrievalProfile
 from pydantic import BaseModel, Field
 from services.embedder import EmbeddingService
-from services.llm import LLMService
+from services.llm import LLMService, citation_is_supported, validate_citations
 from services.retriever import VectorStoreService
 from services.runtime import dense_index, quality_retriever
 
@@ -35,6 +35,8 @@ class SourceResponse(BaseModel):
     excerpt: str
     similarity: float
     rank: Optional[int] = None
+    location_type: str = "page"
+    location_value: str = "1"
 
 
 class AskResponse(BaseModel):
@@ -42,6 +44,7 @@ class AskResponse(BaseModel):
     confidence_score: float
     confidence_label: str
     sources: List[SourceResponse]
+    citations: List[Dict[str, object]] = Field(default_factory=list)
     retrieval_profile: RetrievalProfile
 
 
@@ -71,6 +74,8 @@ def _dense_sources(question: str, category: Optional[str], top_k: int) -> list[d
                 "excerpt": result.text,
                 "similarity": round(result.score, 3),
                 "rank": result.rank,
+                "location_type": result.location_type,
+                "location_value": result.location_value,
             }
         )
     return sources
@@ -115,6 +120,8 @@ async def ask_question(request: AskRequest):
                         "excerpt": result.text,
                         "similarity": round(result.score, 3),
                         "rank": result.rank,
+                        "location_type": result.location_type,
+                        "location_value": result.location_value,
                     }
                 )
         else:
@@ -133,12 +140,26 @@ async def ask_question(request: AskRequest):
             sources=sources,
             chat_history=request.chat_history,
         )
+        citations = [
+            {
+                "source_id": citation.source_id,
+                "chunk_id": citation.chunk_id,
+                "doc_id": citation.document_id,
+                "filename": citation.filename,
+                "location_type": citation.location_type,
+                "location_value": citation.location_value,
+                "excerpt": citation.excerpt,
+                "supported": citation_is_supported(answer, citation),
+            }
+            for citation in validate_citations(answer, sources)
+        ]
 
         return AskResponse(
             answer=answer,
             confidence_score=confidence_score,
             confidence_label=confidence_label,
             sources=[SourceResponse(**source) for source in sources],
+            citations=citations,
             retrieval_profile=request.retrieval_profile,
         )
     except Exception as error:

@@ -119,6 +119,8 @@ def test_ask_uses_fast_dense_results_when_available(monkeypatch):
     assert response.status_code == 200
     assert response.json()["retrieval_profile"] == "fast"
     assert response.json()["sources"][0]["filename"] == "policy.md"
+    assert response.json()["citations"][0]["source_id"] == "S1"
+    assert response.json()["citations"][0]["supported"] is True
 
 
 def test_ask_uses_quality_retriever_when_available(monkeypatch):
@@ -173,3 +175,4 @@ def test_ask_uses_quality_retriever_when_available(monkeypatch):
     assert response.status_code == 200
     assert response.json()["retrieval_profile"] == "quality"
     assert response.json()["sources"][0]["filename"] == "quality.md"
+    assert response.json()["citations"][0]["source_id"] == "S1"

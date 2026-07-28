@@ -9,7 +9,7 @@ This document covers developer onboarding, local environment configuration, Dock
 - **Python**: 3.11 or higher
 - **Node.js**: 20.x or higher (npm 10+)
 - **Docker & Docker Compose**: (For containerized deployment)
-- **Groq API Key**: Obtain a free API key from [console.groq.com](https://console.groq.com)
+- **Local model weights**: cache a Qwen3-4B GGUF file locally before starting the offline server.
 
 ---
 
@@ -23,10 +23,11 @@ cd docmind
 # Create environment file from template
 cp .env.example .env
 ```
-Edit `.env` and insert your `GROQ_API_KEY`:
+Edit `.env` with local model paths (no API key is required):
 ```env
-GROQ_API_KEY=gsk_your_groq_api_key_here
-GROQ_MODEL=llama-3.1-8b-instant
+DOCMIND_LLM_MODEL_PATH=./backend/models/qwen3-4b-instruct-q4_k_m.gguf
+DOCMIND_EMBEDDING_MODEL_PATH=C:/models/Qwen3-Embedding-0.6B
+DOCMIND_RERANKER_MODEL_PATH=C:/models/bge-reranker-v2-m3
 NEXTAUTH_SECRET=docmind-super-secret-key-change-me
 ```
 

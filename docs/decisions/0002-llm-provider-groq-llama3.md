@@ -1,4 +1,7 @@
-# 2. LLM Engine Selection: Local GGUF (`llama-cpp-python`) & Groq Fallback
+# 2. LLM Engine Selection: Local GGUF (`llama-cpp-python`)
+
+> Superseded by P4: Groq is no longer a supported runtime dependency or
+> fallback. This record is retained as historical context for the prototype.
 
 - **Status**: Accepted
 - **Date**: 2026-07-25

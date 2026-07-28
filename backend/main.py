@@ -11,7 +11,7 @@ from routes.models import router as models_router  # noqa: E402
 
 app = FastAPI(
     title="DocMind API",
-    description="Internal Knowledge Assistant API powered by FastAPI, pgvector & Local GGUF LLMs",
+    description="Offline Internal Knowledge Assistant API with local Qwen generation",
     version="1.0.0"
 )
 

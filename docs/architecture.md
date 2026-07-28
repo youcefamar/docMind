@@ -4,7 +4,7 @@
 > ingestion implementation is documented in [P1 ingestion](p1-ingestion.md);
 > FAISS/BM25 retrieval is documented in [P2 Fast retrieval](p2-fast-retrieval.md)
 > and [P3 Quality retrieval](p3-quality-retrieval.md); local Qwen generation
-> will replace the remaining prototype ChromaDB/Groq assumptions in P4.
+> and citation validation are documented in [P4 local generation](p4-local-generation.md).
 
 DocMind is designed as a modular, lightweight Retrieval-Augmented Generation (RAG) platform that enables enterprise teams to query internal PDF documents in natural language with source citation grounding.
 
@@ -19,8 +19,8 @@ sequenceDiagram
     participant FE as Next.js 15 Frontend
     participant BE as FastAPI Backend
     participant Emb as SentenceTransformers
-    participant DB as ChromaDB / Vector Store
-    participant LLM as Groq API (Llama 3.1 8B)
+    participant DB as Local FAISS + BM25 indexes
+    participant LLM as Local Qwen3-4B GGUF
 
     rect rgb(240, 244, 255)
     note right of Employee: 1. Ingestion Phase
@@ -70,7 +70,9 @@ sequenceDiagram
 - **`routes/documents.py`**: Exposes `POST /api/upload`, `GET /api/docs`, and `DELETE /api/doc/{id}`.
 - **`services/embedder.py`**: Reads PDF bytes via `pypdf`, cleans whitespace, generates overlapping chunks with metadata (`doc_id`, `filename`, `category`, `page_number`, `chunk_index`), and embeds via `sentence-transformers` (`all-MiniLM-L6-v2`).
 - **`services/retriever.py`**: Interfaces with persistent ChromaDB storage, executing cosine similarity search and category metadata filtering.
-- **`services/llm.py`**: Formats grounding prompts for Groq (`llama-3.1-8b-instant`), enforces "I don't know" rules, and scores answer confidence.
+- **`services/llm.py`**: Runs the local Qwen3-4B GGUF adapter, formats deterministic
+  source labels, validates citations, enforces insufficient-evidence behavior,
+  and scores answer confidence.
 
 ---
 

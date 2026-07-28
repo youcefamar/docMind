@@ -21,7 +21,6 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "pgvector>=0.2.4",
     "llama-cpp-python>=0.2.50",
-    "groq>=0.4.2",
     "python-multipart>=0.0.6",
     "python-dotenv>=1.0.0",
     "requests>=2.31.0",

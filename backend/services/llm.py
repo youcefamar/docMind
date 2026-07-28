@@ -205,7 +205,8 @@ class LLMService:
             f"If the context is insufficient, answer exactly: {DEFAULT_REFUSAL}\n"
             "Answer in the same language as the user when possible. Keep it concise.\n"
             "Cite every factual claim with one or more supplied labels such as [S1]. "
-            "Never create a label that is not supplied. Do not expose private reasoning."
+            "Never create a label that is not supplied. Do not expose private reasoning. "
+            "Use non-thinking mode: /no_think."
         )
         messages = [{"role": "system", "content": system_prompt}]
         for message in chat_history[-4:]:

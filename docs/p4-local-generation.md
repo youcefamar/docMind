@@ -34,6 +34,24 @@ The service performs no download and makes no hosted API call. If the model
 file is absent, a deterministic extractive fallback is used for development;
 this fallback must not be used for measured CV performance claims.
 
+## Model download API
+
+The model registry in `backend/models/models_config.json` points to the
+Qwen3-4B GGUF artifact on Hugging Face. Downloads are explicit setup actions,
+not runtime inference:
+
+```text
+GET  /api/models/
+POST /api/models/download   {"model_id":"qwen3-4b-q4"}
+GET  /api/models/qwen3-4b-q4
+POST /api/models/select      {"model_id":"qwen3-4b-q4"}
+```
+
+The downloader uses the Hugging Face cache, writes through a temporary file,
+rejects unsafe filenames, and exposes queued/downloading/completed/failed
+status. After selection, the already-downloaded file is loaded by the local
+LLM service; no request is sent to Hugging Face for answering questions.
+
 ## Tests
 
 `backend/tests/test_llm.py` covers unknown citation rejection, source overlap,

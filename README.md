@@ -177,3 +177,23 @@ P2 FAISS/BM25 indexer is connected.
 
 ### 5. Re-index Document
 `POST /api/doc/{doc_id}/reindex`
+
+### 6. Local model management
+
+`GET /api/models/` lists the registered Hugging Face GGUF models and their
+download status. Start a download with `POST /api/models/download`:
+
+```json
+{"model_id": "qwen3-4b-q4"}
+```
+
+Poll `GET /api/models/qwen3-4b-q4` until `download_status` is `completed`, then
+select it with `POST /api/models/select`:
+
+```json
+{"model_id": "qwen3-4b-q4"}
+```
+
+Downloads are stored locally and use a temporary file until complete. The
+server must have internet access only during this setup step; inference remains
+local and offline afterwards.

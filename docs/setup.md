@@ -31,6 +31,15 @@ DOCMIND_RERANKER_MODEL_PATH=C:/models/bge-reranker-v2-m3
 NEXTAUTH_SECRET=docmind-super-secret-key-change-me
 ```
 
+Alternatively, after starting the backend once, use the interactive Swagger
+page at `http://127.0.0.1:8000/docs`: call `GET /api/models/`, then
+`POST /api/models/download` with `{"model_id":"qwen3-4b-q4"}`. Poll the model
+status endpoint and call `/api/models/select` when the download completes.
+
+For `POST /api/ask` in Postman, choose **Body → raw → JSON** and ensure the
+header is `Content-Type: application/json`. Do not send the JSON as form-data or
+as a quoted text string; FastAPI will otherwise return `422 model_attributes_type`.
+
 ---
 
 ### Step 2: Backend Setup (FastAPI)

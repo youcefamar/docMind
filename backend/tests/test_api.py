@@ -10,6 +10,7 @@ from models.contracts import (
 )
 from routes import chat as chat_route
 from routes import documents as documents_route
+from routes import models as models_route
 from services.ingestion import DocumentIngestionService
 
 client = TestClient(app)
@@ -32,6 +33,24 @@ def test_list_documents_endpoint():
 def test_ask_question_empty_validation():
     response = client.post("/api/ask", json={"question": "   ", "category": "All"})
     assert response.status_code == 400
+
+
+def test_model_registry_exposes_local_qwen_entry():
+    response = client.get("/api/models/")
+
+    assert response.status_code == 200
+    assert response.json()["models"][0]["id"] == "qwen3-4b-q4"
+    assert response.json()["models"][0]["repo_id"] == "Qwen/Qwen3-4B-GGUF"
+
+
+def test_model_download_is_queued_without_network(monkeypatch):
+    monkeypatch.setattr(models_route, "_download_task", lambda model: None)
+
+    response = client.post("/api/models/download", json={"model_id": "qwen3-4b-q4"})
+
+    assert response.status_code == 200
+    assert response.json()["model_id"] == "qwen3-4b-q4"
+    assert response.json()["status"] == "queued"
 
 
 def test_upload_catalog_and_delete_use_local_ingestion(tmp_path: Path, monkeypatch):

@@ -14,7 +14,7 @@ backend/models/*.gguf
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 notebooks/dummy_files/
-
+notebooks/output/
 # Data & Document Storage (Ignored to prevent committing company documents)
 data/
 data/*

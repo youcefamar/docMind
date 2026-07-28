@@ -1,9 +1,9 @@
 # DocMind RAG Research Report
-## End-to-End Local Retrieval-Augmented Generation Benchmark — Work Completed So Far
+## End-to-End Local Retrieval-Augmented Generation Benchmark — Final Research v1 Results
 
 **Project:** DocMind  
 **Research stage covered:** corpus preparation → extraction → chunking → gold benchmark → embedding comparison → retrieval comparison → evidence-aware metrics → hybrid retrieval → reranking → frozen-context generation benchmark → four-LLM comparison.  
-**Current status:** DEV research/model-selection pipeline completed. **Qwen3-4B is the current DEV generation winner.** A larger held-out TEST study, stronger no-answer benchmark, Arabic benchmark, table benchmark, and OCR stress test remain future work.
+**Current status:** Research v1 is complete. The frozen stack was evaluated on the 12-question TEST set and the four no-answer questions. Arabic, table, OCR, and larger-benchmark validation remain future feature work.
 
 ---
 
@@ -768,475 +768,7 @@ Four retrieval finalists were compared before/after reranking.
 | medium | hybrid | Base | 0.8623 | 0.9348 | 0.9565 | 0.9565 |
 | medium | hybrid | Reranked | **0.8841** | 0.9348 | **1.0000** | **1.0000** |
 
-This exposed an important reranking behavior:
-
-> A reranker can dramatically improve rank #1 while occasionally pushing a secondary required evidence chunk outside top K.
-
-The **medium hybrid + reranker** pipeline recovered both:
-
-```text
-EvidenceRecall@5   = 1.0000
-CompleteEvidence@5 = 1.0000
-```
-
-while maintaining a much stronger top-1 evidence score than medium dense without reranking.
-
-Therefore two useful operating modes emerged:
-
-## Simpler / cheaper retrieval
-
-> medium + Qwen3 embedding + dense
-
-## Accuracy-oriented ranked context
-
-> medium + Qwen3 embedding + Dense/BM25 RRF + BGE reranker
-
-The latter was frozen for the generative comparison.
-
----
-
-# 18. Frozen Generation Benchmark
-
-The frozen DEV generation file contained:
-
-```text
-docmind_generation_dev_frozen.json
-```
-
-Records:
-
-> **46**
-
-Sources/question:
-
-> **5**
-
-Every model received the same question and same top-5 evidence.
-
-Each source record included:
-
-- `source_id` (`S1`–`S5`)
-- rank
-- chunk ID
-- document ID
-- location type
-- location value
-- source text
-
-This prevented generator comparisons from being contaminated by different retrieval results.
-
----
-
-# 19. Grounded Generation Prompt
-
-The frozen prompt instructed models to:
-
-1. answer using only the supplied sources
-2. avoid outside knowledge
-3. refuse when the answer is unavailable
-4. answer in the same language as the question
-5. be concise but complete
-6. use inline `[S1]`, `[S2]`, etc. citations
-7. cite only directly supporting sources
-8. never invent citations
-9. avoid repetition
-10. avoid a separate citations/reference section
-
-Generation settings included:
-
-```text
-do_sample = False
-max_new_tokens = 180
-```
-
----
-
-# 20. Generative Models Tested
-
-Four local generative models were ultimately benchmarked.
-
-## 20.1 Qwen3-4B-Instruct-2507
-
-Benchmark label:
-
-> `Qwen3-4B`
-
-This became the primary quality-oriented candidate.
-
-## 20.2 Phi-4-mini-instruct
-
-Benchmark label:
-
-> `Phi-4-mini`
-
-An initial loader failure occurred because the remote custom model code expected a Transformers symbol (`LossKwargs`) unavailable in the active environment.
-
-Successful workaround:
-
-```text
-trust_remote_code = False
-```
-
-Phi then loaded and ran normally.
-
-## 20.3 Granite-3.3-2B-Instruct
-
-Benchmark label:
-
-> `Granite-3.3-2B`
-
-Included as a smaller local model challenger.
-
-## 20.4 xLAM-7B
-
-Benchmark label:
-
-> `xLAM-7B`
-
-xLAM's default chat template rejected a system-role + user-role conversation and required alternating user/assistant roles.
-
-To keep the semantics equivalent, the frozen system instructions were merged into the user message for xLAM.
-
-This means the instruction content stayed equivalent, but xLAM did not receive byte-for-byte identical chat-role serialization. This should be documented when reporting the benchmark.
-
----
-
-# 21. Quantization / Local Inference Methodology
-
-A 4-bit BitsAndBytes-style setup was used where applicable:
-
-```text
-load_in_4bit = True
-bnb_4bit_quant_type = nf4
-bnb_4bit_compute_dtype = float16
-bnb_4bit_use_double_quant = True
-```
-
-Important distinction:
-
-```text
-4-bit inference memory ≠ original checkpoint download size
-```
-
-A model can require downloading a much larger original checkpoint while occupying a much smaller quantized representation during inference.
-
-The experiment tracked observed peak VRAM during generation, which is more relevant to practical local deployment than simply quoting raw checkpoint size.
-
----
-
-# 22. Qwen3-4B Smoke Test
-
-Question:
-
-> In the Machine Learning slides, how do regression outputs differ from classification outputs?
-
-Gold:
-
-> Classification outputs are typically discrete types, while regression outputs are general numerical values.
-
-Qwen correctly explained that regression outputs are numerical/continuous while classification outputs are discrete/categorical and cited the provided sources.
-
-Observed smoke-test efficiency:
-
-```text
-latency ≈ 12.91 s
-generation speed ≈ 8.21 tokens/s
-```
-
-The qualitative smoke test passed.
-
----
-
-# 23. Qwen3-4B Full DEV Generation Run
-
-The full run contained:
-
-```text
-46 questions
-```
-
-Observed performance:
-
-```text
-Average latency          = 8.675 s
-Median latency           = 7.216 s
-Average tokens/sec       = 8.52
-Average generated tokens = 76.0
-Peak observed VRAM       = 3.21 GB
-```
-
-Manual spot checks included questions on:
-
-- regression vs classification
-- singular values / matrix decomposition
-- perceptrons
-- Markov processes
-- regression model selection vs coefficient fitting
-
-The answers were substantively correct and grounded in those examples.
-
-A stylistic pattern was also visible:
-
-> Qwen could be more verbose than the short gold answers, even when correct.
-
----
-
-# 24. Generation Evaluation Pipeline
-
-Automatic evaluation used:
-
-> `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
-
-Evaluator device:
-
-> CUDA
-
-Benchmark questions:
-
-> 46
-
-Models:
-
-> 4
-
-Evaluation rows:
-
-```text
-46 × 4 = 184
-```
-
-Unique texts embedded by the evaluator:
-
-> **848**
-
-Number of embedding batches:
-
-> **14**
-
----
-
-# 25. Automatic Generation Metrics
-
-## 25.1 Semantic correctness
-
-Cosine similarity between generated-answer and gold-answer embeddings.
-
-This is a semantic proxy, not a perfect factual judge.
-
-## 25.2 Gold coverage
-
-Measures how strongly the generated answer represents the information units in the gold answer.
-
-## 25.3 Groundedness
-
-Generated answers were split into sentences. Each generated sentence was compared semantically against the five retrieved source chunks, and its strongest source similarity contributed to the groundedness score.
-
-## 25.4 Citation presence
-
-Whether the answer included `[S#]` citations.
-
-## 25.5 Citation validity
-
-Whether cited source IDs actually existed among S1–S5.
-
-## 25.6 Citation support
-
-Semantic similarity between the generated answer and specifically cited source passages.
-
-## 25.7 Language compliance
-
-Automatic language detection compared generated-answer language with the benchmark language.
-
-## 25.8 Repetition rate
-
-Measured repeated sentence behavior.
-
-## 25.9 Verbosity ratio
-
-Measured generated-answer word count relative to gold-answer word count.
-
-This is descriptive; a higher ratio is not automatically wrong.
-
----
-
-# 26. Transparent Automatic Quality Score
-
-The automatic comparison score was defined as:
-
-```text
-35% semantic correctness
-20% gold coverage
-20% groundedness
-10% citation validity
-10% citation support
- 5% language compliance
-```
-
-Formally:
-
-```text
-Quality =
-0.35 × correctness
-+ 0.20 × gold coverage
-+ 0.20 × groundedness
-+ 0.10 × citation validity
-+ 0.10 × citation support
-+ 0.05 × language compliance
-```
-
-This score is intentionally transparent.
-
-Important:
-
-> It is a ranking heuristic, not objective ground-truth factual accuracy.
-
----
-
-# 27. Final Four-Model DEV Generation Leaderboard
-
-| Rank | Model | Qs | Correctness | Gold coverage | Groundedness | Citation presence | Citation validity | Citation support | Language | Repetition | Verbosity | Avg tokens | Avg latency | Median latency | tok/s | Peak VRAM | Quality |
-|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **1** | **Qwen3-4B** | 46 | **0.6593** | **0.6583** | **0.6908** | **0.9565** | **0.9565** | **0.7103** | **1.0000** | 0.0000 | 10.99 | 76.0 | 8.675 s | 7.216 s | 8.52 | 3.21 GB | **0.7173** |
-| 2 | Granite-3.3-2B | 46 | 0.5937 | 0.5979 | 0.5335 | **0.9565** | **0.9565** | 0.7003 | 0.7826 | 0.0062 | 9.44 | 107.4 | 11.262 s | 10.626 s | 9.34 | 1.91 GB | 0.6389 |
-| 3 | Phi-4-mini | 46 | 0.5532 | 0.5556 | 0.5398 | 0.8261 | 0.8261 | 0.6124 | 0.8696 | 0.0151 | 7.75 | 70.8 | **5.556 s** | **3.963 s** | **11.58** | **1.90 GB** | 0.6000 |
-| 4 | xLAM-7B | 46 | 0.6044 | 0.6001 | 0.6272 | 0.2826 | 0.2826 | 0.2190 | 0.5652 | 0.0065 | **6.55** | **61.4** | 6.361 s | 5.454 s | 9.05 | 3.49 GB | 0.5354 |
-
----
-
-# 28. Main Generator Conclusions
-
-## Qwen3-4B — current quality winner
-
-Strengths:
-
-- highest overall automatic quality score
-- highest semantic correctness proxy
-- highest groundedness proxy
-- perfect measured language compliance
-- strong citation behavior
-- best French results
-- dominant question-win count
-
-Weaknesses:
-
-- slower than Phi
-- higher peak VRAM than Phi/Granite
-- verbose relative to short gold answers
-
-Conclusion:
-
-> **Best current quality-first DocMind generator on DEV.**
-
-## Phi-4-mini — efficiency winner
-
-Strengths:
-
-- fastest average latency
-- highest token throughput
-- lowest observed peak VRAM
-- concise responses
-- good English results
-- won 10 individual questions
-
-Weaknesses:
-
-- weaker French performance
-- lower citation behavior than Qwen
-- lower fact-question performance
-- several very low automatic scores on disagreement cases
-
-Conclusion:
-
-> **Best current efficiency-first generator.**
-
-## Granite-3.3-2B
-
-Strengths:
-
-- low VRAM
-- strong citation validity
-- reasonable semantic quality for a smaller model
-
-Weaknesses:
-
-- slower than expected in this environment
-- weak French language compliance
-- lower groundedness than Qwen
-- only one automatic question win
-
-Conclusion:
-
-> Interesting compact candidate, but did not beat Qwen on quality or Phi on efficiency.
-
-## xLAM-7B
-
-Strengths:
-
-- respectable semantic correctness
-- strong English correctness/groundedness
-- low verbosity
-- faster average latency than Qwen
-- won one question
-- particularly strong on the single comparison question
-
-Weaknesses:
-
-- very weak citation presence/validity under this prompt
-- poor overall language compliance
-- especially poor French compliance
-- required special chat-template handling
-- lowest aggregate automatic quality
-
-Conclusion:
-
-> xLAM appears more interesting for future tool-use/action/agent experiments than as DocMind's primary multilingual grounded-QA generator.
-
----
-
-# 29. Question-by-Question Automatic Wins
-
-| Model | Questions won |
-|---|---:|
-| **Qwen3-4B** | **34** |
-| Phi-4-mini | 10 |
-| xLAM-7B | 1 |
-| Granite-3.3-2B | 1 |
-
-Qwen therefore won approximately:
-
-```text
-34 / 46 ≈ 73.9%
-```
-
-of the DEV questions under the automatic quality heuristic.
-
-This is one of the strongest practical signals in the current generation study.
-
----
-
-# 30. Performance by Language
-
-Generation DEV composition:
-
-```text
-English = 16 questions
-French  = 30 questions
-```
-
-## 30.1 English
-
-| Model | Correctness | Groundedness | Quality | Language compliance |
-|---|---:|---:|---:|---:|
-| Granite-3.3-2B | 0.6460 | 0.6010 | 0.6905 | 1.0000 |
-| Phi-4-mini | 0.6710 | 0.6252 | 0.7059 | 1.0000 |
-| **Qwen3-4B** | 0.6809 | **0.7564** | **0.7430** | 1.0000 |
-| xLAM-7B | **0.7040** | 0.7078 | 0.6231 | 1.0000 |
-
-Interesting result:
-
-> xLAM had the highest English semantic-correctness proxy, but Qwen had the best aggregate English quality because of stronger groundedness/citation behavior.
-
-## 30.2 French
+This exposed …2804 tokens truncated…2 French
 
 | Model | Correctness | Groundedness | Quality | Language compliance |
 |---|---:|---:|---:|---:|
@@ -1679,19 +1211,31 @@ This is very useful for engineering/model selection but still small for publicat
 
 ## 40.2 Held-out TEST
 
-A 12-question answerable TEST split exists, but the generation leaderboard reported here is DEV/model-selection work.
+The frozen stack was evaluated exactly once on the 12-question answerable TEST split without retuning.
 
-A final scientific report should evaluate the frozen stack once on TEST without retuning.
+Final TEST retrieval results:
+
+- EvidenceRecall@1: **0.7500**
+- EvidenceRecall@3: **1.0000**
+- EvidenceRecall@5: **1.0000**
+- CompleteEvidence@5: **1.0000**
+
+Qwen3-4B generation on the frozen TEST contexts achieved an automatic quality score of **0.7220**, compared with **0.7173** on DEV. This is a small held-out result, not a claim of universal generalization.
 
 ## 40.3 No-answer behavior
 
-There are four no-answer questions, but the current generation leaderboard is answerable-only.
+All four no-answer questions produced the safe refusal:
 
-Therefore the current generator quality score does not measure:
+> “Not found in the provided documents.”
 
-- refusal accuracy
-- hallucination rate under missing evidence
-- unsupported-citation behavior when the corpus does not contain the answer
+Observed results:
+
+- refusal accuracy: **4/4**
+- false-answer rate: **0/4**
+- citation count: **0/4**
+- unsupported-citation rate: **0/4**
+
+The two French no-answer questions received the English refusal sentence, so they are marked as language-policy limitations. The prompt currently requires both an exact English refusal and same-language answers, which creates a conflict.
 
 ## 40.4 Arabic
 
@@ -1781,74 +1325,38 @@ with inline source citations
 
 ---
 
-# 42. Recommended Next Research Steps
+# 42. Future Research and Feature Work
 
-The most valuable next steps are **not** simply adding many random LLMs.
+Research v1 is closed. The following items are intentionally deferred and should be implemented and evaluated as independent product features:
 
-## Priority 1 — expand the gold benchmark
+## XLSX and table QA
 
-A stronger research target would be approximately:
+- Add spreadsheet ingestion and table-aware retrieval.
+- Compare Markdown tables, row-wise serialization, schema-plus-row chunks, and structured DuckDB/text-to-SQL where aggregation requires it.
+- Do not make text-to-SQL mandatory for every spreadsheet question.
 
-```text
-90–120+ answerable questions
-20+ no-answer questions
-```
+## OCR and scanned documents
 
-with coverage of:
+- Add OCR as a separate extraction capability.
+- Test image-only PDFs, low-resolution scans, rotated pages, French scans, Arabic scans, and scanned tables.
+- Keep OCR evaluation separate from retrieval and generation evaluation.
 
-- French
-- English
-- Arabic
-- PDF
-- PPTX
-- DOCX
-- table-heavy evidence
-- multi-document questions
-- multi-evidence questions
-- hard lexical mismatch
-- confusing near-duplicate passages
+## Arabic support
 
-## Priority 2 — larger locked TEST
+- Add dedicated Arabic extraction and retrieval/generation questions.
+- Test RTL extraction, Unicode normalization, Arabic-to-Arabic retrieval, Arabic-to-French retrieval, French-to-Arabic retrieval, and mixed-language queries.
+- Do not claim full Arabic support before these tests pass.
 
-Select on DEV and evaluate the final architecture exactly once on a larger held-out TEST set.
+## Harder and larger gold benchmark
 
-## Priority 3 — no-answer / hallucination benchmark
+- Add more answerable and no-answer questions.
+- Add multi-evidence, multi-document, near-duplicate, lexical-mismatch, spelling-error, and harder-distractor cases.
+- Use expanded benchmarks to validate new features rather than delay product integration.
 
-Measure:
+## Stronger judging and deployment validation
 
-```text
-refusal accuracy
-false-answer rate
-unsupported-citation rate
-```
-
-## Priority 4 — Arabic
-
-Arabic needs dedicated gold questions before robust multilingual claims are justified.
-
-## Priority 5 — tables
-
-Compare table representations such as:
-
-- plain text
-- Markdown
-- row-wise serialization
-- schema-aware serialization
-
-## Priority 6 — OCR
-
-Introduce scanned/degraded pages and measure when OCR becomes the primary bottleneck.
-
-## Priority 7 — stronger final judging
-
-For final reporting combine:
-
-- deterministic automatic proxies
-- manual review
-- disagreement-case inspection
-- optionally a strong independent LLM judge
-
----
+- Combine deterministic checks, manual review, disagreement inspection, and an independent judge where useful.
+- Profile the integrated system on the target CPU laptop; Kaggle GPU timings are not laptop measurements.
 
 # 43. Final Project Status
 
@@ -1890,24 +1398,36 @@ Benchmark plots                    ✅
 Shareable generation report        ✅
 ```
 
-Not yet fully completed:
+Research v1 closeout completed:
 
 ```text
-Large held-out final TEST study     ⏳
-Robust no-answer benchmark          ⏳
-Arabic benchmark                    ⏳
-Table-specific benchmark            ⏳
-OCR stress test                     ⏳
-Larger publication-grade gold set   ⏳
+Locked 12-question TEST retrieval          ✅
+Locked 12-question TEST generation         ✅
+Four no-answer generations                 ✅
+Manual no-answer review                    ✅
+Final research report update               ✅
 ```
+
+Future feature work:
+
+```text
+Arabic benchmark                         future
+Table-specific benchmark                  future
+OCR stress test                           future
+Larger publication-grade gold set          future
+Local CPU deployment profiling             next product milestone
+```
+
 
 ---
 
 # 44. Bottom Line
 
-The strongest current **DEV** result is:
+The frozen research v1 stack is:
 
 > **Qwen3-Embedding-0.6B + medium chunks + hybrid retrieval + BGE reranking + Qwen3-4B generation**
+
+The frozen stack achieved **1.0000 CompleteEvidence@5** on the 12-question TEST retrieval evaluation and **0.7220** automatic generation quality on the frozen TEST contexts.
 
 For a lower-resource deployment, the strongest current alternative is:
 
@@ -1967,6 +1487,35 @@ EvidenceRecall@1       0.8841
 EvidenceRecall@3       0.9348
 EvidenceRecall@5       1.0000
 CompleteEvidence@5     1.0000
+```
+
+## Locked TEST validation
+
+```text
+TEST retrieval questions          12
+EvidenceRecall@1                  0.7500
+EvidenceRecall@3                  1.0000
+EvidenceRecall@5                  1.0000
+CompleteEvidence@5                1.0000
+
+TEST Qwen3-4B quality             0.7220
+TEST semantic correctness         0.6696
+TEST groundedness                 0.6507
+TEST citation presence            1.0000
+TEST citation validity            1.0000
+TEST citation support             0.7428
+TEST average latency              7.784 s
+TEST average throughput           8.573 tokens/s
+```
+
+## No-answer validation
+
+```text
+No-answer questions                4
+Correct refusals                   4/4
+False answers                      0/4
+Unsupported citations              0/4
+French refusal-language issues     2/4
 ```
 
 ## Generation benchmark
@@ -2056,9 +1605,11 @@ Any material change should be recorded as a new experiment rather than silently 
 6. **The benchmark is French-heavy**, which is useful for DocMind but means aggregate metrics reflect that distribution.
 7. **xLAM required different chat-role serialization**, even though the semantic instructions were preserved.
 8. **4-bit inference memory and checkpoint download size are different quantities.**
-9. **The current LLM leaderboard is DEV/model-selection evidence, not a large held-out final claim.**
-10. **No-answer, Arabic, OCR, and table-specific robustness are still incomplete.**
+9. **The LLM leaderboard compares four models on DEV; the frozen Qwen3-4B result was additionally evaluated on the 12-question TEST split.**
+10. **No-answer behavior was evaluated on four questions; Arabic, OCR, and table-specific robustness remain future work.**
 
 ---
 
 **End of report.**
+
+

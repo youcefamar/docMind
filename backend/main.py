@@ -16,6 +16,7 @@ from routes.chat import router as chat_router  # noqa: E402
 from routes.config import router as config_router  # noqa: E402
 from routes.documents import router as docs_router  # noqa: E402
 from routes.models import router as models_router  # noqa: E402
+from routes.status import router as status_router  # noqa: E402
 
 app = FastAPI(
     title="DocMind API",
@@ -37,6 +38,7 @@ app.include_router(chat_router)
 app.include_router(config_router)
 app.include_router(docs_router)
 app.include_router(models_router)
+app.include_router(status_router)
 
 @app.get("/", tags=["Health"])
 async def root():

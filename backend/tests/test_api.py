@@ -40,6 +40,16 @@ def test_public_config_exposes_dynamic_ui_options():
     assert "pdf" in {extension.lstrip(".") for extension in payload["supported_extensions"]}
     assert payload["retrieval_defaults"]["fast_top_k"] > 0
 
+
+def test_runtime_status_exposes_safe_readiness_state():
+    response = client.get("/api/runtime/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "embedding_ready" in payload
+    assert "llm_ready" in payload
+    assert "quality_ready" in payload
+
 def test_ask_question_empty_validation():
     response = client.post("/api/ask", json={"question": "   ", "category": "All"})
     assert response.status_code == 400

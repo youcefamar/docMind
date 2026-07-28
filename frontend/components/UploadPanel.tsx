@@ -10,6 +10,8 @@ interface DocumentSummary {
   chunk_count: number;
   total_pages: number;
   created_at: string;
+  status: string;
+  error_detail?: string | null;
 }
 
 export default function UploadPanel() {
@@ -83,9 +85,11 @@ export default function UploadPanel() {
       }
 
       const result = await res.json();
+      const indexedCount = result.filter((item: DocumentSummary) => item.status === 'indexed').length;
+      const pendingCount = result.length - indexedCount;
       setUploadMessage({
         type: 'success',
-        text: `Successfully processed and indexed ${result.length} document(s) under category '${selectedCategory}'.`,
+        text: `Processed ${result.length} document(s): ${indexedCount} indexed${pendingCount ? `, ${pendingCount} awaiting indexing` : ''}.`,
       });
       setFiles(null);
       fetchDocuments();
@@ -117,6 +121,26 @@ export default function UploadPanel() {
     } catch (err) {
       console.error('Delete error:', err);
     }
+  };
+
+  const handleReindex = async (docId: string, filename: string) => {
+    try {
+      const res = await fetch(`/api/backend/doc/${docId}/reindex`, { method: 'POST' });
+      if (!res.ok) {
+        const errorPayload = await res.json().catch(() => null);
+        throw new Error(errorPayload?.detail?.message || errorPayload?.detail || 'Re-index failed');
+      }
+      setUploadMessage({ type: 'success', text: `Re-indexed '${filename}'.` });
+      fetchDocuments();
+    } catch (err: any) {
+      setUploadMessage({ type: 'error', text: err.message || `Could not re-index '${filename}'.` });
+    }
+  };
+
+  const statusClass = (status: string) => {
+    if (status === 'indexed') return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+    if (status === 'failed') return 'bg-red-500/10 text-red-300 border-red-500/20';
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
   };
 
   const filteredDocs = documents.filter(
@@ -283,7 +307,7 @@ export default function UploadPanel() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 className="text-lg font-bold text-white">Indexed Knowledge Base</h3>
-            <p className="text-xs text-gray-400">Manage uploaded PDF documents and active vector embeddings</p>
+            <p className="text-xs text-gray-400">Manage uploaded documents and their local index status</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -313,6 +337,7 @@ export default function UploadPanel() {
                 <th className="p-3">Category</th>
                 <th className="p-3">Total Pages</th>
                 <th className="p-3">Chunks</th>
+                <th className="p-3">Status</th>
                 <th className="p-3">Date Added</th>
                 <th className="p-3 text-right">Action</th>
               </tr>
@@ -332,23 +357,44 @@ export default function UploadPanel() {
                     </td>
                     <td className="p-3">{doc.total_pages} pages</td>
                     <td className="p-3">{doc.chunk_count} chunks</td>
+                    <td className="p-3">
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass(doc.status)}`}>
+                        {doc.status.replaceAll('_', ' ')}
+                      </span>
+                      {doc.error_detail && (
+                        <p className="mt-1 max-w-xs truncate text-[10px] text-red-300" title={doc.error_detail}>
+                          {doc.error_detail}
+                        </p>
+                      )}
+                    </td>
                     <td className="p-3 text-gray-400">
                       {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Recent'}
                     </td>
                     <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleDelete(doc.id, doc.filename)}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        title="Delete document embeddings"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        {doc.status !== 'indexed' && (
+                          <button
+                            onClick={() => handleReindex(doc.id, doc.filename)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            title="Re-index document"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(doc.id, doc.filename)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          title="Delete document and local index entries"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-center p-8 text-gray-500">
+                  <td colSpan={7} className="text-center p-8 text-gray-500">
                     {isLoadingDocs ? 'Loading document catalog...' : 'No documents uploaded yet. Upload a supported file to get started!'}
                   </td>
                 </tr>

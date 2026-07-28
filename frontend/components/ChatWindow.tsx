@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Trash2, ShieldAlert, Sparkles, Filter, RefreshCw, CheckCircle2, HelpCircle } from 'lucide-react';
+import { Send, Bot, User, Trash2, Sparkles, Filter, RefreshCw, CheckCircle2, Cpu, Database } from 'lucide-react';
 import SourceCard, { Source } from './SourceCard';
 
 interface Message {
@@ -11,7 +11,27 @@ interface Message {
   confidenceScore?: number;
   confidenceLabel?: string;
   sources?: Source[];
+  citations?: Citation[];
+  retrievalProfile?: string;
   timestamp: string;
+}
+
+interface Citation {
+  source_id: string;
+  filename: string;
+  location_type: string;
+  location_value: string;
+  supported: boolean;
+}
+
+interface RuntimeStatus {
+  embedding_ready: boolean;
+  dense_index_ready: boolean;
+  bm25_index_ready: boolean;
+  quality_ready: boolean;
+  llm_ready: boolean;
+  llm_backend: string;
+  llm_model: string;
 }
 
 export default function ChatWindow() {
@@ -27,6 +47,9 @@ export default function ChatWindow() {
   const [input, setInput] = useState('');
   const [categories, setCategories] = useState<string[]>(['All']);
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
+  const [retrievalProfiles, setRetrievalProfiles] = useState<string[]>(['fast']);
+  const [selectedProfile, setSelectedProfile] = useState('fast');
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,9 +69,22 @@ export default function ChatWindow() {
         if (!config) return;
         setCategories(config.category_filter_options || ['All']);
         setSuggestedPrompts(config.suggested_prompts || []);
+        setRetrievalProfiles(config.retrieval_profiles || ['fast']);
         setSelectedCategory((current) => current || config.default_category || 'All');
       })
       .catch((err) => console.error('Failed to fetch backend configuration:', err));
+
+    const refreshRuntimeStatus = () => {
+      fetch('/api/backend/runtime/status')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((status) => {
+          if (status) setRuntimeStatus(status);
+        })
+        .catch((err) => console.error('Failed to fetch runtime status:', err));
+    };
+    refreshRuntimeStatus();
+    const interval = window.setInterval(refreshRuntimeStatus, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const handleSend = async (customPrompt?: string) => {
@@ -81,12 +117,14 @@ export default function ChatWindow() {
         body: JSON.stringify({
           question: query,
           category: selectedCategory,
+          retrieval_profile: selectedProfile,
           chat_history: formattedHistory,
         }),
       });
 
       if (!res.ok) {
-        throw new Error(`Server returned HTTP ${res.status}`);
+        const errorPayload = await res.json().catch(() => null);
+        throw new Error(errorPayload?.detail || `Server returned HTTP ${res.status}`);
       }
 
       const data = await res.json();
@@ -98,6 +136,8 @@ export default function ChatWindow() {
         confidenceScore: data.confidence_score,
         confidenceLabel: data.confidence_label,
         sources: data.sources || [],
+        citations: data.citations || [],
+        retrievalProfile: data.retrieval_profile,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
@@ -149,6 +189,34 @@ export default function ChatWindow() {
               {cat}
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs">
+          <label htmlFor="retrieval-profile" className="text-gray-400">Retrieval:</label>
+          <select
+            id="retrieval-profile"
+            value={selectedProfile}
+            onChange={(event) => setSelectedProfile(event.target.value)}
+            className="rounded-lg border border-gray-700 bg-gray-900 px-2 py-1.5 text-gray-200 focus:border-indigo-500 focus:outline-none"
+          >
+            {retrievalProfiles.map((profile) => (
+              <option
+                key={profile}
+                value={profile}
+                disabled={profile === 'quality' && runtimeStatus !== null && !runtimeStatus.quality_ready}
+              >
+                {profile === 'quality' ? 'Quality' : 'Fast'}
+                {profile === 'quality' && runtimeStatus !== null && !runtimeStatus.quality_ready ? ' (not ready)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 text-[11px] text-gray-400">
+          <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+          <span>{runtimeStatus?.llm_ready ? runtimeStatus.llm_model : 'Local model not loaded'}</span>
+          <Database className={`h-3.5 w-3.5 ${runtimeStatus?.dense_index_ready ? 'text-emerald-400' : 'text-amber-400'}`} />
+          <span>{runtimeStatus?.dense_index_ready ? 'Index ready' : 'Indexing required'}</span>
         </div>
 
         {/* Clear Chat Action */}
@@ -223,7 +291,7 @@ export default function ChatWindow() {
 
                   {/* Sources Section if Bot */}
                   {!isUser && msg.sources && msg.sources.length > 0 && (
-                    <SourceCard sources={msg.sources} />
+                    <SourceCard sources={msg.sources} citations={msg.citations} />
                   )}
                 </div>
 

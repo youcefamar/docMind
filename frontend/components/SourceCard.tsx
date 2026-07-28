@@ -13,11 +13,20 @@ export interface Source {
   similarity: number;
 }
 
-interface SourceCardProps {
-  sources: Source[];
+export interface Citation {
+  source_id: string;
+  filename: string;
+  location_type: string;
+  location_value: string;
+  supported: boolean;
 }
 
-export default function SourceCard({ sources }: SourceCardProps) {
+interface SourceCardProps {
+  sources: Source[];
+  citations?: Citation[];
+}
+
+export default function SourceCard({ sources, citations = [] }: SourceCardProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(0);
 
   if (!sources || sources.length === 0) return null;
@@ -40,6 +49,22 @@ export default function SourceCard({ sources }: SourceCardProps) {
         <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
         <span>Verified Sources ({sources.length})</span>
       </div>
+      {citations.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2 text-[10px]">
+          {citations.map((citation) => (
+            <span
+              key={citation.source_id}
+              className={`rounded-full border px-2 py-0.5 ${
+                citation.supported
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                  : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+              }`}
+            >
+              {citation.source_id} · {citation.supported ? 'supported' : 'needs review'}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {sources.map((src, idx) => {

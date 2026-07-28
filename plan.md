@@ -479,6 +479,9 @@ platform-specific file watcher.
 
 ### P6 — local deployment profiling
 
+Status: profiling harness implemented in `backend/scripts/profile_local.py`;
+first CPU-only measurements are recorded in `docs/p6-local-profiling.md`.
+
 Run the integrated application on the target laptop and measure components separately:
 
 - model download and disk size;

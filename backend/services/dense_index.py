@@ -142,6 +142,19 @@ class DenseIndexService:
             return []
 
         query = self._normalize(self.embedder.generate_embeddings([question]))
+        return self.search_vector(query[0].tolist(), category=category, top_k=top_k)
+
+    def search_vector(
+        self,
+        query_vector: list[float],
+        category: Optional[str] = None,
+        top_k: int = 5,
+    ) -> list[RetrievalResult]:
+        """Search with a precomputed normalized query vector for profiling."""
+        if not self.ready or top_k <= 0:
+            return []
+
+        query = self._normalize([query_vector])
         fetch_k = min(max(top_k * 5, top_k), self.index.ntotal)
         scores, ids = self.index.search(query, fetch_k)
         results: list[RetrievalResult] = []

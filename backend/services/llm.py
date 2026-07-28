@@ -9,8 +9,10 @@ the API and ingestion flows usable during development.
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -106,6 +108,11 @@ class LLMService:
         self.model_name = "unconfigured-local-model"
         self.model_ready = False
         self.backend = "extractive-fallback"
+        self.last_generation_stats: dict[str, object] = {
+            "completion_tokens": None,
+            "time_to_first_token_ms": None,
+            "tokens_per_second": None,
+        }
         if auto_load:
             self._init_local_model()
 
@@ -114,8 +121,24 @@ class LLMService:
 
         for env_name in (MODEL_PATH_ENV, LEGACY_MODEL_PATH_ENV):
             env_path = os.getenv(env_name)
-            if env_path:
+            if env_path and Path(env_path).is_file():
                 return env_path
+
+        registry_path = Path(__file__).resolve().parents[1] / "models" / "models_config.json"
+        try:
+            config = json.loads(registry_path.read_text(encoding="utf-8"))
+            active_id = config.get("active_model_id")
+            active_model = next(
+                (item for item in config.get("models", []) if item.get("id") == active_id),
+                None,
+            )
+            filename = Path(str(active_model.get("filename", ""))).name if active_model else ""
+            if active_model and filename == active_model.get("filename") and filename.endswith(".gguf"):
+                candidate = registry_path.parent / filename
+                if candidate.is_file():
+                    return str(candidate)
+        except (OSError, ValueError, TypeError, AttributeError):
+            pass
         return ""
 
     def _init_local_model(self) -> None:
@@ -146,6 +169,12 @@ class LLMService:
         sources: List[Dict[str, Any]],
         chat_history: Optional[List[Dict[str, str]]] = None,
     ) -> Tuple[str, float, str]:
+        generation_started_at = time.perf_counter()
+        self.last_generation_stats = {
+            "completion_tokens": None,
+            "time_to_first_token_ms": None,
+            "tokens_per_second": None,
+        }
         if not sources:
             return DEFAULT_REFUSAL, 0.0, "Low"
 
@@ -163,6 +192,18 @@ class LLMService:
                     max_tokens=int(os.getenv("DOCMIND_LLM_MAX_TOKENS", "600")),
                 )
                 answer = response["choices"][0]["message"]["content"].strip()
+                usage = response.get("usage", {})
+                completion_tokens = usage.get("completion_tokens")
+                elapsed_seconds = time.perf_counter() - generation_started_at
+                self.last_generation_stats = {
+                    "completion_tokens": completion_tokens,
+                    "time_to_first_token_ms": None,
+                    "tokens_per_second": (
+                        round(completion_tokens / elapsed_seconds, 2)
+                        if isinstance(completion_tokens, int) and elapsed_seconds > 0
+                        else None
+                    ),
+                }
             except Exception as error:  # pragma: no cover - native model/runtime dependent
                 print(f"[LLM] Local generation error: {error}")
                 answer = self._generate_fallback_answer(sources)

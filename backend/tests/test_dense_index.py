@@ -89,6 +89,8 @@ def test_dense_index_retrieves_and_persists_chunk_mapping(tmp_path: Path):
 
     assert results[0].document_id == "doc-cat"
     assert results[0].retrieval_profile is RetrievalProfile.FAST
+    query_vector = service.embedder.generate_embeddings(["Tell me about cats"])[0]
+    assert service.search_vector(query_vector, top_k=1)[0].document_id == "doc-cat"
     assert restored.search("Tell me about dogs", top_k=1)[0].document_id == "doc-dog"
 
 

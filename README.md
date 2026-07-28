@@ -62,6 +62,7 @@ docmind/
 │   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
 │   │   └── llm.py            # Local Qwen GGUF generation + citation validation
 │   ├── models/contracts.py   # Shared ingestion/retrieval/citation contracts
+│   ├── scripts/profile_local.py # Repeatable CPU profiling harness
 │   ├── Dockerfile
 │   └── requirements.txt
 │
@@ -229,3 +230,10 @@ local and offline afterwards.
 by a hash manifest. A first-level folder matching a configured category (for
 example `knowledge/HR/handbook.pdf`) is assigned that category; other files use
 `DOCMIND_DEFAULT_CATEGORY`.
+
+### 9. Local profiling
+
+Run `backend/scripts/profile_local.py` to measure local model loading, query
+embedding, FAISS/BM25/RRF retrieval, optional reranking, generation, end-to-end
+latency, artifact sizes, and peak CPU memory. The methodology and the first
+CPU-only measurements are recorded in [docs/p6-local-profiling.md](docs/p6-local-profiling.md).

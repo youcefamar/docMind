@@ -48,6 +48,7 @@ class FolderSyncService:
             "unchanged": 0,
             "removed": 0,
             "failed": 0,
+            "failures": [],
             "last_sync_at": None,
             "error": None,
         }
@@ -80,6 +81,7 @@ class FolderSyncService:
                     "unchanged": 0,
                     "removed": 0,
                     "failed": 0,
+                    "failures": [],
                     "error": None,
                 }
             )
@@ -104,7 +106,14 @@ class FolderSyncService:
             path.relative_to(self.source_dir).as_posix(): path
             for path in self._iter_source_files()
         }
-        counts = {"discovered": len(files), "indexed": 0, "unchanged": 0, "removed": 0, "failed": 0}
+        counts = {
+            "discovered": len(files),
+            "indexed": 0,
+            "unchanged": 0,
+            "removed": 0,
+            "failed": 0,
+            "failures": [],
+        }
         next_manifest: dict[str, dict] = {}
 
         for relative_path, path in sorted(files.items()):
@@ -113,6 +122,9 @@ class FolderSyncService:
                 content = self._read_stable(path)
             except IngestionError as error:
                 counts["failed"] += 1
+                counts.setdefault("failures", []).append(
+                    {"path": relative_path, "error": error.message}
+                )
                 if previous:
                     next_manifest[relative_path] = previous
                 print(f"[FolderSync] Failed to read {relative_path}: {error}")
@@ -151,6 +163,9 @@ class FolderSyncService:
                 counts["indexed"] += 1
             except Exception as error:
                 counts["failed"] += 1
+                counts.setdefault("failures", []).append(
+                    {"path": relative_path, "error": str(error)}
+                )
                 if previous:
                     next_manifest[relative_path] = previous
                 print(f"[FolderSync] Failed to process {relative_path}: {error}")

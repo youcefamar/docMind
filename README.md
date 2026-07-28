@@ -226,7 +226,7 @@ local and offline afterwards.
 
 `POST /api/sources/sync` queues a scan and returns `202`; poll
 `GET /api/sources/status` for counts (`discovered`, `indexed`, `unchanged`,
-`removed`, and `failed`). Files are copied into the local data store and tracked
+`removed`, and `failed`) plus per-file failure diagnostics. Files are copied into the local data store and tracked
 by a hash manifest. A first-level folder matching a configured category (for
 example `knowledge/HR/handbook.pdf`) is assigned that category; other files use
 `DOCMIND_DEFAULT_CATEGORY`.

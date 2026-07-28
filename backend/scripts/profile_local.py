@@ -169,6 +169,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0,
         help="Limit rebuild scope for a bounded experiment; 0 uses every stored chunk",
     )
+    parser.add_argument("--index-batch-size", type=int, default=32)
+    parser.add_argument("--document-id", help="Restrict a rebuild to one stored document")
     parser.add_argument("--skip-generation", action="store_true")
     parser.add_argument("--output", help="JSON output path (default: data/profiling/profile_local.json)")
     return parser
@@ -239,17 +241,35 @@ def main() -> int:
     if args.rebuild_indexes:
         started = time.perf_counter()
         chunks = metadata_store.list_chunks()
+        if args.document_id:
+            chunks = metadata_store.get_chunks(args.document_id)
+            if not chunks:
+                raise SystemExit(f"No chunks found for document id: {args.document_id}")
+            notes.append(f"Index rebuild was restricted to document {args.document_id}.")
         if args.max_index_chunks > 0:
             chunks = chunks[: args.max_index_chunks]
             notes.append(
                 f"Index rebuild was limited to {len(chunks)} chunks; retrieval latency is not a full-corpus measurement."
             )
-        dense_count = dense_index.rebuild(chunks)
+        def report_index_progress(completed: int, total: int, elapsed_ms: float, resumed: bool) -> None:
+            print(
+                f"[P6] dense index {completed}/{total} chunks "
+                f"elapsed_ms={elapsed_ms:.0f} resumed={resumed}",
+                flush=True,
+            )
+
+        dense_count = dense_index.rebuild_batched(
+            chunks,
+            batch_size=max(1, args.index_batch_size),
+            checkpoint_path=data_dir / "indexes" / "fast" / "dense_rebuild.checkpoint.json",
+            progress_callback=report_index_progress,
+        )
         bm25_count = bm25_index.rebuild(chunks)
         index_build = {
             "dense_chunks": dense_count,
             "lexical_chunks": bm25_count,
             "scope": "limited" if args.max_index_chunks > 0 else "full",
+            "batch_size": max(1, args.index_batch_size),
             "elapsed_ms": round((time.perf_counter() - started) * 1000, 3),
         }
         memory_samples.append(_rss_mb() or 0.0)

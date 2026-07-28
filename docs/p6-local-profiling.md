@@ -23,7 +23,7 @@ To synchronize a source corpus before rebuilding, use an explicit source path:
 ```powershell
 .\.venv\Scripts\python.exe scripts/profile_local.py `
   --source-dir "D:\Projects\docMind\data\Nouveau dossier" `
-  --sync --rebuild-indexes --max-index-chunks 300 --profile both
+  --sync --rebuild-indexes --max-index-chunks 300 --index-batch-size 32 --profile both
 ```
 
 `--max-index-chunks` is intentionally opt-in. A limited rebuild is useful for
@@ -31,6 +31,11 @@ bounded latency experiments, but its result must not be described as a
 full-corpus indexing result. The JSON report is written to
 `data/profiling/profile_local.json`, which is ignored from Git because it may
 contain local paths and machine-specific measurements.
+
+Dense rebuilds persist after each batch to
+`data/indexes/fast/dense_rebuild.checkpoint.json`. Re-running the same command
+resumes from the last completed batch; changing the stored chunks automatically
+invalidates that checkpoint.
 
 ## Measurement captured on 2026-07-28
 
@@ -49,6 +54,7 @@ fresh offline restart uses the downloaded artifact as well.
 | Embedding model load | 865.8 ms |
 | Qwen3-4B Q4 GGUF artifact | 2,381.59 MB |
 | LLM load | 3,127.2 ms |
+| Dense rebuild (19 chunks, CPU) | 26,969 ms |
 | Query embedding | 759.6 ms |
 | FAISS search | 8.9 ms |
 | BM25 search | 0.07 ms |
@@ -64,6 +70,13 @@ median query embedding of **310.0 ms**, FAISS search of **4.66 ms**, and full
 Fast retrieval of **281.9 ms** (p95: 481.4 ms, 5.1 ms, and 342.3 ms
 respectively). The single-sample generation values above remain separate
 because repeating a 25–40 second CPU generation is intentionally expensive.
+
+The later checkpointed experiment reached 96/300 chunks before it was stopped;
+the checkpoint was valid and resumable during that experiment. The 19-chunk
+baseline was restored afterward, so no partial checkpoint is left active. The
+27.0-second 19-chunk rebuild
+shows that company-scale indexing should run as a background maintenance job,
+not inside an upload request. The new batch builder provides that recovery path.
 
 These are CPU measurements on the development laptop, not Kaggle GPU results.
 The 4B model is close to the six-gigabyte operating budget once the embedding

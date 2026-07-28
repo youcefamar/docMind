@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+import pytest
 from models.contracts import (
     ChunkRecord,
     DocumentBlock,
@@ -104,6 +105,34 @@ def test_dense_index_applies_category_filter(tmp_path: Path):
     results = service.search("cats", category="Animals", top_k=5)
 
     assert [result.document_id for result in results] == ["doc-cat"]
+
+
+def test_dense_index_batched_rebuild_resumes_from_checkpoint(tmp_path: Path):
+    store = MetadataStore(tmp_path / "metadata.sqlite")
+    add_document(store, "doc-cat", "cats.md", "Animals", "Cats are quiet.")
+    add_document(store, "doc-dog", "dogs.md", "Animals", "Dogs are loyal.")
+    service = DenseIndexService(tmp_path / "indexes", KeywordEmbedder(), store)
+    checkpoint = tmp_path / "indexes" / "rebuild.checkpoint.json"
+
+    def stop_after_first_batch(completed, _total, _elapsed, _resumed):
+        if completed == 1:
+            raise RuntimeError("stop for resume test")
+
+    with pytest.raises(RuntimeError, match="stop for resume test"):
+        service.rebuild_batched(
+            store.list_chunks(),
+            batch_size=1,
+            checkpoint_path=checkpoint,
+            progress_callback=stop_after_first_batch,
+        )
+
+    assert checkpoint.is_file()
+    resumed = DenseIndexService(tmp_path / "indexes", KeywordEmbedder(), store)
+    assert resumed.rebuild_batched(
+        store.list_chunks(), batch_size=1, checkpoint_path=checkpoint
+    ) == 2
+    assert not checkpoint.exists()
+    assert resumed.search("dogs", top_k=1)[0].document_id == "doc-dog"
 
 
 def test_qwen_adapter_normalizes_model_embeddings():

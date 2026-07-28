@@ -481,6 +481,8 @@ platform-specific file watcher.
 
 Status: profiling harness implemented in `backend/scripts/profile_local.py`;
 first CPU-only measurements are recorded in `docs/p6-local-profiling.md`.
+Dense rebuilds now run in persisted batches with restart checkpoints, and
+folder synchronization exposes per-file extraction failures for diagnosis.
 
 Run the integrated application on the target laptop and measure components separately:
 

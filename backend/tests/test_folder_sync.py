@@ -72,4 +72,5 @@ def test_sync_reports_failed_source_without_losing_previous_manifest(tmp_path: P
     result = sync.sync()
 
     assert result["failed"] == 1
+    assert result["failures"][0]["path"] == "notes.txt"
     assert (tmp_path / "data" / "sync_manifest.json").read_text(encoding="utf-8") == manifest

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -106,6 +108,103 @@ class DenseIndexService:
 
     def rebuild_from_store(self) -> int:
         return self.rebuild(self.metadata_store.list_chunks())
+
+    def rebuild_batched(
+        self,
+        chunks: list[ChunkRecord],
+        batch_size: int = 32,
+        checkpoint_path: str | Path | None = None,
+        progress_callback: Any = None,
+    ) -> int:
+        """Rebuild dense vectors in resumable batches.
+
+        Each completed batch is persisted atomically. If a process is stopped
+        between batches, the next invocation resumes only when the chunk
+        fingerprint still matches; replacements or deletions automatically
+        start a fresh rebuild.
+        """
+        if batch_size <= 0:
+            raise DenseIndexError("batch_size must be greater than zero")
+
+        ordered_chunks = list(chunks)
+        fingerprint = self._chunks_fingerprint(ordered_chunks)
+        checkpoint = Path(checkpoint_path) if checkpoint_path else None
+        index = faiss.IndexFlatIP(self.dimension)
+        indexed_ids: list[str] = []
+        start = 0
+        resumed = False
+
+        if checkpoint and checkpoint.is_file() and self.index_path.is_file():
+            try:
+                payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+                checkpoint_ids = payload.get("chunk_ids", [])
+                if (
+                    payload.get("fingerprint") == fingerprint
+                    and payload.get("total_chunks") == len(ordered_chunks)
+                    and checkpoint_ids == [chunk.id for chunk in ordered_chunks[: len(checkpoint_ids)]]
+                ):
+                    restored = faiss.read_index(str(self.index_path))
+                    if restored.d == self.dimension and restored.ntotal == len(checkpoint_ids):
+                        index = restored
+                        indexed_ids = list(checkpoint_ids)
+                        start = len(indexed_ids)
+                        resumed = start > 0
+            except (OSError, ValueError, KeyError, TypeError, RuntimeError):
+                pass
+
+        started_at = time.perf_counter()
+        for offset in range(start, len(ordered_chunks), batch_size):
+            batch = ordered_chunks[offset : offset + batch_size]
+            vectors = self._normalize(
+                self.embedder.generate_embeddings([chunk.text for chunk in batch])
+            )
+            if vectors.shape[1] != self.dimension:
+                raise DenseIndexError(
+                    f"Embedding dimension {vectors.shape[1]} does not match index dimension {self.dimension}"
+                )
+            index.add(vectors)
+            indexed_ids.extend(chunk.id for chunk in batch)
+            self._persist(index, indexed_ids)
+            if checkpoint:
+                checkpoint.parent.mkdir(parents=True, exist_ok=True)
+                temporary = checkpoint.with_suffix(checkpoint.suffix + ".tmp")
+                temporary.write_text(
+                    json.dumps(
+                        {
+                            "version": 1,
+                            "fingerprint": fingerprint,
+                            "total_chunks": len(ordered_chunks),
+                            "chunk_ids": indexed_ids,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                os.replace(temporary, checkpoint)
+            if progress_callback:
+                progress_callback(
+                    len(indexed_ids),
+                    len(ordered_chunks),
+                    (time.perf_counter() - started_at) * 1000,
+                    resumed,
+                )
+
+        self.index = index
+        self.chunk_ids = indexed_ids
+        if checkpoint:
+            checkpoint.unlink(missing_ok=True)
+        return len(indexed_ids)
+
+    @staticmethod
+    def _chunks_fingerprint(chunks: list[ChunkRecord]) -> str:
+        digest = hashlib.sha256()
+        for chunk in chunks:
+            digest.update(chunk.id.encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(chunk.text.encode("utf-8"))
+            digest.update(b"\0")
+        return digest.hexdigest()
 
     def index_document(self, document_id: str) -> int:
         """Rebuild after ingestion; rebuild-all keeps replacement/delete atomic."""

@@ -65,3 +65,8 @@ LLM service; no request is sent to Hugging Face for answering questions.
 prompt labelling, no-source refusal, low-score refusal, and the no-weights
 fallback. API tests verify citations are returned with the existing source
 contract.
+
+Product settings such as categories, upload extensions, size limits, and
+retrieval top-k values are environment-backed and exposed safely through
+`GET /api/config/`; the frontend consumes that endpoint instead of duplicating
+business configuration.

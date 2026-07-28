@@ -19,6 +19,7 @@ from models.contracts import (
 from pydantic import BaseModel
 from services.embedder import DocumentProcessor
 from services.metadata_store import MetadataStore
+from services.settings import settings
 
 
 class IngestionError(ValueError):
@@ -43,7 +44,6 @@ Indexer = Callable[[list[dict]], None]
 class DocumentIngestionService:
     """Own validation, original-file storage, extraction, and document lifecycle."""
 
-    SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".txt", ".md"}
     OFFICE_EXTENSIONS = {".docx", ".pptx", ".xlsx"}
 
     def __init__(
@@ -51,14 +51,15 @@ class DocumentIngestionService:
         data_root: str | Path,
         metadata_store: Optional[MetadataStore] = None,
         processor: Optional[DocumentProcessor] = None,
-        max_file_size: int = 50 * 1024 * 1024,
+        max_file_size: Optional[int] = None,
     ):
         self.data_root = Path(data_root)
         self.documents_root = self.data_root / "documents"
         self.documents_root.mkdir(parents=True, exist_ok=True)
         self.metadata_store = metadata_store or MetadataStore(self.data_root / "metadata.sqlite")
         self.processor = processor or DocumentProcessor()
-        self.max_file_size = max_file_size
+        self.supported_extensions = set(settings.supported_extensions)
+        self.max_file_size = max_file_size if max_file_size is not None else settings.max_file_size_mb * 1024 * 1024
 
     def validate_upload(
         self,
@@ -72,7 +73,7 @@ class DocumentIngestionService:
             raise IngestionError("invalid_filename", "Filename must be a simple local filename.")
 
         extension = Path(filename).suffix.lower()
-        if extension not in self.SUPPORTED_EXTENSIONS:
+        if extension not in self.supported_extensions:
             raise IngestionError(
                 "unsupported_extension",
                 f"Unsupported file type '{extension or '[none]'}'.",
@@ -108,7 +109,7 @@ class DocumentIngestionService:
         self,
         filename: str,
         content: bytes,
-        category: str = "General",
+        category: Optional[str] = None,
         replace: bool = False,
         indexer: Optional[Indexer] = None,
         content_type: Optional[str] = None,
@@ -147,7 +148,7 @@ class DocumentIngestionService:
             filename=filename,
             sha256=digest,
             size_bytes=len(content),
-            category=category.strip() or "General",
+            category=category.strip() if category and category.strip() else settings.default_category,
             status=DocumentStatus.QUEUED,
             original_path=str(original_path),
             created_at=existing_name.created_at if existing_name and replace else now,

@@ -14,15 +14,6 @@ interface Message {
   timestamp: string;
 }
 
-const CATEGORIES = ['All', 'HR', 'Tech', 'Finance', 'Legal', 'Operations'];
-
-const SUGGESTED_PROMPTS = [
-  "What is the policy for remote work and PTO?",
-  "How do I submit an expense report for tech equipment?",
-  "What are our security protocols for code deployment?",
-  "What is the process for employee performance reviews?"
-];
-
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -34,6 +25,8 @@ export default function ChatWindow() {
   ]);
 
   const [input, setInput] = useState('');
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -46,9 +39,21 @@ export default function ChatWindow() {
     scrollToBottom();
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    fetch('/api/backend/config/')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((config) => {
+        if (!config) return;
+        setCategories(config.category_filter_options || ['All']);
+        setSuggestedPrompts(config.suggested_prompts || []);
+        setSelectedCategory((current) => current || config.default_category || 'All');
+      })
+      .catch((err) => console.error('Failed to fetch backend configuration:', err));
+  }, []);
+
   const handleSend = async (customPrompt?: string) => {
     const query = customPrompt || input;
-    if (!query.strip ? !query.trim() : !query) return;
+    if (!query.trim()) return;
 
     const userMsg: Message = {
       id: `usr_${Date.now()}`,
@@ -61,7 +66,7 @@ export default function ChatWindow() {
     if (!customPrompt) setInput('');
     setIsLoading(true);
 
-    try:
+    try {
       // Format chat history for multi-turn context
       const formattedHistory = messages
         .filter((m) => m.id !== 'welcome-1')
@@ -131,7 +136,7 @@ export default function ChatWindow() {
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
           <Filter className="w-4 h-4 text-indigo-400 flex-shrink-0" />
           <span className="text-xs text-gray-400 font-medium mr-1">Filter:</span>
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
@@ -251,7 +256,7 @@ export default function ChatWindow() {
             Try asking:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {SUGGESTED_PROMPTS.map((prompt, i) => (
+            {suggestedPrompts.map((prompt, i) => (
               <button
                 key={i}
                 onClick={() => handleSend(prompt)}

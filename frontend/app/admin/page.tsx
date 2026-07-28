@@ -7,7 +7,7 @@ export default function AdminPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-extrabold text-white tracking-tight">Document Administration</h1>
         <p className="text-sm text-gray-400">
-          Upload new PDFs, organize by category, and manage active vector embeddings in ChromaDB.
+          Upload supported documents, organize them with configured categories, and manage local indexes.
         </p>
       </div>
 

@@ -5,6 +5,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import pypdf
+from services.settings import settings
 
 # Multi-format document parser imports with graceful fallback
 try:
@@ -33,15 +34,15 @@ EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
 
 class DocumentProcessor:
-    def __init__(self, chunk_size: int = 600, overlap: int = 100):
-        self.chunk_size = chunk_size
-        self.overlap = overlap
+    def __init__(self, chunk_size: Optional[int] = None, overlap: Optional[int] = None):
+        self.chunk_size = chunk_size if chunk_size is not None else settings.chunk_size_chars
+        self.overlap = overlap if overlap is not None else settings.chunk_overlap_chars
 
     def extract_chunks(
         self,
         file_bytes: bytes,
         filename: str,
-        category: str = "General",
+        category: Optional[str] = None,
         doc_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
@@ -84,7 +85,7 @@ class DocumentProcessor:
                     "id": f"{doc_id}_p{page_num}_c{idx_in_page}",
                     "doc_id": doc_id,
                     "filename": filename,
-                    "category": category or "General",
+                    "category": category or settings.default_category,
                     "page_number": page_num,
                     "total_pages": num_pages,
                     "chunk_index": global_chunk_idx,

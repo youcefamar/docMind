@@ -30,6 +30,16 @@ def test_list_documents_endpoint():
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
+
+def test_public_config_exposes_dynamic_ui_options():
+    response = client.get("/api/config/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["default_category"] in payload["categories"]
+    assert "pdf" in {extension.lstrip(".") for extension in payload["supported_extensions"]}
+    assert payload["retrieval_defaults"]["fast_top_k"] > 0
+
 def test_ask_question_empty_validation():
     response = client.post("/api/ask", json={"question": "   ", "category": "All"})
     assert response.status_code == 400
@@ -166,7 +176,8 @@ def test_ask_uses_quality_retriever_when_available(monkeypatch):
         ready = True
         dense_index = type("Dense", (), {"metadata_store": FakeMetadata()})()
 
-        def search(self, question, category=None, final_k=5):
+        def search(self, question, category=None, final_k=5, candidate_k=30):
+            del candidate_k
             return [
                 RetrievalResult(
                     chunk_id="doc-quality:chunk:1",

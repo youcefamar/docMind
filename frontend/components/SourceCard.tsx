@@ -4,12 +4,12 @@ import React, { useState } from 'react';
 import { FileText, Bookmark, ChevronDown, ChevronUp, ExternalLink, Sparkles } from 'lucide-react';
 
 export interface Source {
-  doc_id: str;
-  filename: str;
-  category: str;
+  doc_id: string;
+  filename: string;
+  category: string;
   page_number: number;
   total_pages: number;
-  excerpt: str;
+  excerpt: string;
   similarity: number;
 }
 
@@ -23,19 +23,15 @@ export default function SourceCard({ sources }: SourceCardProps) {
   if (!sources || sources.length === 0) return null;
 
   const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'hr':
-        return 'bg-pink-500/10 text-pink-400 border-pink-500/20';
-      case 'tech':
-      case 'technology':
-        return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
-      case 'finance':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-      case 'legal':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      default:
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-    }
+    const palette = [
+      'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+      'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+      'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      'bg-pink-500/10 text-pink-400 border-pink-500/20',
+    ];
+    const hash = Array.from(category || '').reduce((sum, character) => sum + character.charCodeAt(0), 0);
+    return palette[hash % palette.length];
   };
 
   return (

@@ -61,7 +61,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-4 text-xs text-gray-400">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-medium">Groq & ChromaDB Connected</span>
+            <span className="font-medium">Local RAG Workspace</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-gray-500 bg-gray-900/80 px-2.5 py-1 rounded-md border border-gray-800">

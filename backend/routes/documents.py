@@ -4,6 +4,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from services.ingestion import IngestionError, IngestionResult
 from services.runtime import dense_index, index_document, ingestion_service
+from services.settings import settings
 
 router = APIRouter(prefix="/api", tags=["Documents"])
 
@@ -54,7 +55,7 @@ def _upload_response(result: IngestionResult) -> UploadResponse:
 @router.post("/upload", response_model=List[UploadResponse])
 async def upload_documents(
     files: List[UploadFile] = File(...),
-    category: str = Form("General"),
+    category: str = Form(settings.default_category),
 ):
     """Validate, extract, and index uploaded documents locally when configured."""
     if not files:

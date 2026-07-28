@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from services.settings import settings
 
 
 class DocumentStatus(str, Enum):
@@ -30,7 +31,7 @@ class DocumentRecord(BaseModel):
     filename: str
     sha256: str = Field(min_length=64, max_length=64)
     size_bytes: int = Field(ge=0)
-    category: str = "General"
+    category: str = Field(default_factory=lambda: settings.default_category)
     status: DocumentStatus = DocumentStatus.QUEUED
     created_at: datetime
     updated_at: datetime

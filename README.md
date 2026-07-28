@@ -48,6 +48,7 @@ docmind/
 │   ├── main.py               # Application Entrypoint & CORS
 │   ├── routes/
 │   │   ├── chat.py           # POST /api/ask Endpoint
+│   │   ├── config.py         # GET /api/config/ Product configuration
 │   │   └── documents.py      # POST /upload, GET /docs, DELETE /doc
 │   ├── services/
 │   │   ├── embedder.py       # Extraction, chunking, and embedding boundary
@@ -73,8 +74,8 @@ docmind/
 ## 🗓️ 4-Week Execution Plan
 
 - [x] **Week 1 — Core RAG Pipeline (Notebook Prototype)**
-  - PDF loading via `pypdf` -> Chunking -> Vector embedding via `sentence-transformers` -> Indexing in ChromaDB.
-  - Query ChromaDB -> Retrieve top matching chunks -> Synthesize answer with a prototype LLM -> Citation extraction.
+  - PDF loading via `pypdf` -> Chunking -> Vector embedding via `sentence-transformers` -> Indexing in the local retrieval store.
+  - Query the local FAISS/BM25 indexes -> Retrieve top matching chunks -> Synthesize answer with the configured local LLM -> Citation extraction.
   - Notebook available in `notebooks/rag_pipeline_demo.ipynb`.
 
 - [x] **Week 2 — FastAPI Backend Services**
@@ -144,7 +145,7 @@ docker-compose up --build -d
 ```json
 {
   "question": "What is the annual leave policy?",
-  "category": "HR",
+  "category": "All",
   "chat_history": [
     { "sender": "user", "content": "Hi DocMind" },
     { "sender": "bot", "content": "Hello! How can I assist you today?" }
@@ -168,7 +169,7 @@ count, model backend, and stage latency in the terminal. Set
 ### 2. Upload Document
 `POST /api/upload` (Form Data)
 - `files`: File list (`.pdf`, `.docx`, `.pptx`, `.xlsx`, `.xls`, `.txt`, `.md`)
-- `category`: String (`HR`, `Tech`, `Finance`, `Legal`, `Operations`, `General`)
+- `category`: A category returned by `GET /api/config/` (or `All` for chat)
 
 The response includes `status`. New documents are `partially_indexed` until the
 P2 FAISS/BM25 indexer is connected.
@@ -182,7 +183,13 @@ P2 FAISS/BM25 indexer is connected.
 ### 5. Re-index Document
 `POST /api/doc/{doc_id}/reindex`
 
-### 6. Local model management
+### 6. Public runtime configuration
+
+`GET /api/config/` returns the configured categories, supported extensions,
+upload limit, and retrieval defaults used by the frontend. Change these values
+through `.env`; do not edit frontend arrays or route code.
+
+### 7. Local model management
 
 `GET /api/models/` lists the registered Hugging Face GGUF models and their
 download status. Start a download with `POST /api/models/download`:

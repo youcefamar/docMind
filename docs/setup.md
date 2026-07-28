@@ -28,6 +28,10 @@ Edit `.env` with local model paths (no API key is required):
 DOCMIND_LLM_MODEL_PATH=./backend/models/qwen3-4b-instruct-q4_k_m.gguf
 DOCMIND_EMBEDDING_MODEL_PATH=C:/models/Qwen3-Embedding-0.6B
 DOCMIND_RERANKER_MODEL_PATH=C:/models/bge-reranker-v2-m3
+DOCMIND_CATEGORIES=General,HR,Tech,Finance,Legal,Operations
+DOCMIND_DEFAULT_CATEGORY=General
+DOCMIND_SUPPORTED_EXTENSIONS=.pdf,.docx,.pptx,.xlsx,.xls,.txt,.md
+DOCMIND_MAX_FILE_SIZE_MB=50
 NEXTAUTH_SECRET=docmind-super-secret-key-change-me
 ```
 

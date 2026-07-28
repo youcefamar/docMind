@@ -5,9 +5,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from services.embedder import DocumentProcessor, EmbeddingService
 from services.retriever import VectorStoreService
+from services.settings import settings
 
 DATA_DOCS_DIR = os.getenv("DATA_DOCS_DIR", os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "documents")))
-SUPPORTED_EXTENSIONS = ('.pdf', '.docx', '.xlsx', '.xls', '.pptx', '.txt', '.md')
+SUPPORTED_EXTENSIONS = settings.supported_extensions
 
 def batch_ingest():
     print(f"📁 Scanning document repository at: {DATA_DOCS_DIR}")
@@ -31,7 +32,7 @@ def batch_ingest():
                 # Determine category: if in subfolder, use subfolder name. If in root data/documents, use "General"
                 rel_path = os.path.relpath(file_path, DATA_DOCS_DIR)
                 parts = rel_path.split(os.sep)
-                category = parts[0] if len(parts) > 1 else "General"
+                category = parts[0] if len(parts) > 1 else settings.default_category
 
                 print(f"\nProcessing '{file}' [Type: {ext.upper()} | Category: {category}]...")
                 try:

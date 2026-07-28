@@ -453,7 +453,10 @@ P4 uses `llama-cpp-python` with a cached local GGUF file configured through
 `DOCMIND_LLM_MODEL_PATH`. Missing weights use a deterministic extractive
 fallback for development only; no cloud provider is contacted. A registry-based
 Hugging Face setup API now downloads the approved Qwen3 GGUF artifact atomically,
-exposes progress, and loads it only after explicit selection.
+exposes progress, and loads it only after explicit selection. Product settings
+such as categories, supported formats, file limits, chunk defaults, and
+retrieval top-k values are environment-backed and served to the frontend from
+`GET /api/config/`.
 
 ### P5 — API and frontend integration
 

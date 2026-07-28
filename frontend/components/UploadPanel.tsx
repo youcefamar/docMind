@@ -12,16 +12,31 @@ interface DocumentSummary {
   created_at: string;
 }
 
-const CATEGORIES = ['HR', 'Tech', 'Finance', 'Legal', 'Operations', 'General'];
-
 export default function UploadPanel() {
   const [files, setFiles] = useState<FileList | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('HR');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [supportedExtensions, setSupportedExtensions] = useState<string[]>([]);
+  const [maxFileSizeMb, setMaxFileSizeMb] = useState(50);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch('/api/backend/config/');
+      if (!res.ok) return;
+      const config = await res.json();
+      setCategories(config.categories || []);
+      setSupportedExtensions(config.supported_extensions || []);
+      setMaxFileSizeMb(config.max_file_size_mb || 50);
+      setSelectedCategory((current) => current || config.default_category || '');
+    } catch (err) {
+      console.error('Failed to fetch backend configuration:', err);
+    }
+  };
 
   const fetchDocuments = async () => {
     setIsLoadingDocs(true);
@@ -39,6 +54,7 @@ export default function UploadPanel() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchDocuments();
   }, []);
 
@@ -84,7 +100,7 @@ export default function UploadPanel() {
   };
 
   const handleDelete = async (docId: string, filename: string) => {
-    if (!confirm(`Are you sure you want to delete '${filename}' and remove all vector embeddings from ChromaDB?`)) {
+    if (!confirm(`Are you sure you want to delete '${filename}' and remove its local index entries?`)) {
       return;
     }
 
@@ -152,10 +168,10 @@ export default function UploadPanel() {
       <div className="glass-panel p-6 rounded-2xl border border-gray-800 shadow-xl">
         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-1">
           <FolderPlus className="w-5 h-5 text-indigo-400" />
-          <span>Upload & Vectorize PDF Documents</span>
+          <span>Upload & Index Documents</span>
         </h2>
         <p className="text-xs text-gray-400 mb-6">
-          PDFs will be automatically parsed page-by-page, chunked, embedded via sentence-transformers, and saved into ChromaDB.
+          Documents are extracted, chunked, embedded locally, and saved into the configured knowledge store.
         </p>
 
         <form onSubmit={handleUpload} className="space-y-5">
@@ -165,7 +181,7 @@ export default function UploadPanel() {
               Assign Category Tag
             </label>
             <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -186,7 +202,7 @@ export default function UploadPanel() {
           <div className="border-2 border-dashed border-gray-700 hover:border-indigo-500/60 rounded-2xl p-8 text-center bg-gray-950/40 transition-colors">
             <input
               type="file"
-              accept=".pdf"
+              accept={supportedExtensions.join(',')}
               multiple
               onChange={(e) => setFiles(e.target.files)}
               className="hidden"
@@ -200,9 +216,11 @@ export default function UploadPanel() {
                 <p className="text-sm font-semibold text-gray-200">
                   {files && files.length > 0
                     ? `${files.length} file(s) selected`
-                    : 'Click or drag PDF files here to upload'}
+                    : `Click or drag supported files here to upload`}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">Supports multiple PDF files up to 50MB each</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Supports {supportedExtensions.join(', ') || 'configured file types'} up to {maxFileSizeMb}MB each
+                </p>
               </div>
             </label>
 
@@ -331,7 +349,7 @@ export default function UploadPanel() {
               ) : (
                 <tr>
                   <td colSpan={6} className="text-center p-8 text-gray-500">
-                    {isLoadingDocs ? 'Loading document catalog...' : 'No documents uploaded yet. Upload a PDF above to get started!'}
+                    {isLoadingDocs ? 'Loading document catalog...' : 'No documents uploaded yet. Upload a supported file to get started!'}
                   </td>
                 </tr>
               )}

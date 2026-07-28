@@ -11,6 +11,7 @@ from models.contracts import (
     RetrievalResult,
 )
 from pydantic import ValidationError
+from services.settings import settings
 
 
 def test_document_record_defaults_to_queued():
@@ -25,7 +26,7 @@ def test_document_record_defaults_to_queued():
     )
 
     assert document.status is DocumentStatus.QUEUED
-    assert document.category == "General"
+    assert document.category == settings.default_category
 
 
 def test_retrieval_result_requires_a_positive_rank():

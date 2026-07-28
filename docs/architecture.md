@@ -24,10 +24,10 @@ sequenceDiagram
 
     rect rgb(240, 244, 255)
     note right of Employee: 1. Ingestion Phase
-    Employee->>FE: Upload PDF (Select Category: HR, Tech...)
+    Employee->>FE: Upload document (select configured category)
     FE->>BE: POST /api/upload (Multipart form data)
     BE->>BE: Extract text page-by-page (pypdf)
-    BE->>BE: Chunk text (size: 600 chars, overlap: 100)
+    BE->>BE: Chunk text (configured chunk size and overlap)
     BE->>Emb: Generate 384d Embeddings
     Emb-->>BE: Return Vector Floating Arrays
     BE->>DB: Add Documents, Metadatas & Embeddings
@@ -41,7 +41,7 @@ sequenceDiagram
     FE->>BE: POST /api/ask (Question + History + Category Filter)
     BE->>Emb: Embed Question Text
     Emb-->>BE: Return Query Vector
-    BE->>DB: Cosine Similarity Query (top_k = 4, where category = HR)
+    BE->>DB: Cosine similarity query (configured top-k and category filter)
     DB-->>BE: Top Matching Context Chunks + Page Numbers + Scores
     BE->>LLM: Prompt LLM (System Grounding + Context Chunks + Question)
     LLM-->>BE: Generated Answer with Citation Verification
@@ -66,10 +66,10 @@ sequenceDiagram
 
 ### 2. FastAPI Backend Layer
 - **`main.py`**: Initializes ASGI app, handles CORS headers, mounts sub-routers, and provides `/health`.
-- **`routes/chat.py`**: Exposes `POST /api/ask`. Coordinates query embedding, ChromaDB search, LLM generation, and response serialization.
+- **`routes/chat.py`**: Exposes `POST /api/ask`. Coordinates configured dense/lexical retrieval, local LLM generation, and response serialization.
 - **`routes/documents.py`**: Exposes `POST /api/upload`, `GET /api/docs`, and `DELETE /api/doc/{id}`.
 - **`services/embedder.py`**: Reads PDF bytes via `pypdf`, cleans whitespace, generates overlapping chunks with metadata (`doc_id`, `filename`, `category`, `page_number`, `chunk_index`), and embeds via `sentence-transformers` (`all-MiniLM-L6-v2`).
-- **`services/retriever.py`**: Interfaces with persistent ChromaDB storage, executing cosine similarity search and category metadata filtering.
+- **`services/retriever.py`**: Retains the legacy pgvector adapter; the active path uses persistent FAISS/BM25 indexes with category metadata filtering.
 - **`services/llm.py`**: Runs the local Qwen3-4B GGUF adapter, formats deterministic
   source labels, validates citations, enforces insufficient-evidence behavior,
   and scores answer confidence.

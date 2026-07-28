@@ -10,6 +10,7 @@ from services.embedder import EmbeddingService
 from services.llm import LLMService, citation_is_supported, validate_citations
 from services.retriever import VectorStoreService
 from services.runtime import dense_index, quality_retriever
+from services.settings import settings
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 logger = logging.getLogger("docmind.chat")
@@ -22,7 +23,7 @@ class ChatMessage(BaseModel):
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, json_schema_extra={"example": "What is the remote work policy?"})
-    category: Optional[str] = Field("All", json_schema_extra={"example": "HR"})
+    category: Optional[str] = Field("All", description="Configured category filter or All")
     chat_history: Optional[List[Dict[str, str]]] = Field(
         default=[], description="Multi-turn conversation history"
     )
@@ -112,7 +113,8 @@ async def ask_question(request: AskRequest):
             quality_results = quality_retriever.search(
                 request.question,
                 category=request.category,
-                final_k=5,
+                final_k=settings.quality_final_k,
+                candidate_k=settings.quality_candidate_k,
             )
             sources = []
             for result in quality_results:
@@ -139,14 +141,18 @@ async def ask_question(request: AskRequest):
                     }
                 )
         else:
-            sources = _dense_sources(request.question, request.category, top_k=5)
+            sources = _dense_sources(
+                request.question,
+                request.category,
+                top_k=settings.fast_top_k,
+            )
         if not sources and request.retrieval_profile is RetrievalProfile.FAST:
             # Transitional fallback for documents indexed by the old pgvector path.
             query_embeddings = embedder_service.generate_embeddings([request.question])
             sources = retriever_service.search(
                 query_embedding=query_embeddings,
                 category=request.category,
-                top_k=5,
+                top_k=settings.fast_top_k,
             )
         retrieval_ms = (time.perf_counter() - retrieval_started_at) * 1000
         logger.info(

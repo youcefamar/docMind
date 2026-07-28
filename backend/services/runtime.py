@@ -12,13 +12,9 @@ from services.ingestion import DocumentIngestionService
 from services.metadata_store import MetadataStore
 from services.quality_retriever import QualityRetriever
 from services.reranker import LocalReranker
+from services.settings import settings
 
-DATA_ROOT = Path(
-    os.getenv(
-        "DOCMIND_DATA_DIR",
-        str(Path(__file__).resolve().parents[2] / "data"),
-    )
-)
+DATA_ROOT = settings.data_dir
 metadata_store = MetadataStore(DATA_ROOT / "metadata.sqlite")
 embedding_service = QwenEmbeddingService()
 

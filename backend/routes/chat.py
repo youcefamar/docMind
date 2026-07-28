@@ -1,72 +1,112 @@
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from models.contracts import RetrievalProfile
 from pydantic import BaseModel, Field
 from services.embedder import EmbeddingService
 from services.llm import LLMService
 from services.retriever import VectorStoreService
+from services.runtime import dense_index
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
+
 class ChatMessage(BaseModel):
-    sender: str  # "user" or "bot" / "assistant"
+    sender: str
     content: str
 
+
 class AskRequest(BaseModel):
-    question: str = Field(..., min_length=1, example="What is the remote work policy?")
-    category: Optional[str] = Field("All", example="HR")
-    chat_history: Optional[List[Dict[str, str]]] = Field(default=[], description="Multi-turn conversation history")
+    question: str = Field(..., min_length=1, json_schema_extra={"example": "What is the remote work policy?"})
+    category: Optional[str] = Field("All", json_schema_extra={"example": "HR"})
+    chat_history: Optional[List[Dict[str, str]]] = Field(
+        default=[], description="Multi-turn conversation history"
+    )
+    retrieval_profile: RetrievalProfile = RetrievalProfile.FAST
+
 
 class SourceResponse(BaseModel):
     doc_id: str
+    chunk_id: Optional[str] = None
     filename: str
     category: str
     page_number: int
     total_pages: int
     excerpt: str
     similarity: float
+    rank: Optional[int] = None
+
 
 class AskResponse(BaseModel):
     answer: str
     confidence_score: float
     confidence_label: str
     sources: List[SourceResponse]
+    retrieval_profile: RetrievalProfile
 
-# Dependency singletons
+
 embedder_service = EmbeddingService()
 retriever_service = VectorStoreService()
 llm_service = LLMService()
+
+
+def _dense_sources(question: str, category: Optional[str], top_k: int) -> list[dict]:
+    if not dense_index or not dense_index.model_ready:
+        return []
+    results = dense_index.search(question, category=category, top_k=top_k)
+    sources = []
+    for result in results:
+        document = dense_index.metadata_store.get_document(result.document_id)
+        if not document:
+            continue
+        page_number = int(result.location_value) if result.location_type == "page" else 1
+        sources.append(
+            {
+                "doc_id": result.document_id,
+                "chunk_id": result.chunk_id,
+                "filename": result.filename,
+                "category": result.category,
+                "page_number": page_number,
+                "total_pages": document.total_pages,
+                "excerpt": result.text,
+                "similarity": round(result.score, 3),
+                "rank": result.rank,
+            }
+        )
+    return sources
+
 
 @router.post("/ask", response_model=AskResponse)
 async def ask_question(request: AskRequest):
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if request.retrieval_profile is RetrievalProfile.QUALITY:
+        raise HTTPException(status_code=501, detail="Quality retrieval mode is planned for P3.")
 
     try:
-        # 1. Embed query text
-        query_embeddings = embedder_service.generate_embeddings([request.question])
+        sources = _dense_sources(request.question, request.category, top_k=5)
+        if not sources:
+            # Transitional fallback for documents indexed by the old pgvector path.
+            query_embeddings = embedder_service.generate_embeddings([request.question])
+            sources = retriever_service.search(
+                query_embedding=query_embeddings,
+                category=request.category,
+                top_k=5,
+            )
 
-        # 2. Retrieve top matching chunks from ChromaDB
-        sources = retriever_service.search(
-            query_embedding=query_embeddings,
-            category=request.category,
-            top_k=4
-        )
-
-        # 3. Generate answer via Groq LLM
         answer, confidence_score, confidence_label = llm_service.generate_answer(
             question=request.question,
             sources=sources,
-            chat_history=request.chat_history
+            chat_history=request.chat_history,
         )
 
         return AskResponse(
             answer=answer,
             confidence_score=confidence_score,
             confidence_label=confidence_label,
-            sources=[SourceResponse(**src) for src in sources]
+            sources=[SourceResponse(**source) for source in sources],
+            retrieval_profile=request.retrieval_profile,
         )
-
-    except Exception as e:
-        print(f"[API Chat Error] {e}")
-        raise HTTPException(status_code=500, detail=f"Error processing question: {str(e)}")
+    except Exception as error:
+        print(f"[API Chat Error] {error}")
+        raise HTTPException(status_code=500, detail=f"Error processing question: {error}") from error

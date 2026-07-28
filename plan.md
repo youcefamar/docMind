@@ -418,13 +418,16 @@ Expected existing areas:
 - [x] add ingestion status and structured errors;
 - [x] add extraction fixtures and targeted tests.
 
-### P2 — embedding and Fast mode
+### P2 — embedding and Fast mode — implemented
 
-- integrate the local Qwen3 embedding model;
-- build persistent FAISS index and metadata mapping;
-- implement dense retrieval;
-- implement Fast mode end to end;
-- add retrieval trace output and tests.
+- [x] integrate the local Qwen3 embedding adapter with local-only loading;
+- [x] build persistent FAISS index and metadata mapping;
+- [x] implement dense retrieval;
+- [x] implement Fast mode end to end;
+- [x] add retrieval trace output and tests.
+
+Runtime validation with the actual Qwen weights remains a deployment check and
+requires setting `DOCMIND_EMBEDDING_MODEL_PATH` to a cached local model.
 
 ### P3 — Quality mode
 
@@ -626,8 +629,8 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Begin product milestone P2: integrate Qwen3-Embedding-0.6B and persistent FAISS Fast mode.
-2. Keep P3 Quality mode and P4 local generation behind the same service contracts.
+1. Begin product milestone P3: add BM25, RRF, and optional BGE reranking.
+2. Keep P4 local generation behind the same retrieval and citation contracts.
 3. Profile the integrated system on the target laptop.
 4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

@@ -271,6 +271,41 @@ class MetadataStore:
             for row in rows
         ]
 
+    def list_chunks(self) -> list[ChunkRecord]:
+        with self._connect() as connection:
+            rows = connection.execute("SELECT * FROM chunks ORDER BY document_id, chunk_index").fetchall()
+        return [
+            ChunkRecord(
+                id=row["id"],
+                document_id=row["document_id"],
+                block_id=row["block_id"],
+                text=row["text"],
+                token_count=row["token_count"],
+                chunk_index=row["chunk_index"],
+                location_type=row["location_type"],
+                location_value=row["location_value"],
+            )
+            for row in rows
+        ]
+
+    def get_chunk(self, chunk_id: str) -> Optional[ChunkRecord]:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM chunks WHERE id = ?", (chunk_id,)
+            ).fetchone()
+        if not row:
+            return None
+        return ChunkRecord(
+            id=row["id"],
+            document_id=row["document_id"],
+            block_id=row["block_id"],
+            text=row["text"],
+            token_count=row["token_count"],
+            chunk_index=row["chunk_index"],
+            location_type=row["location_type"],
+            location_value=row["location_value"],
+        )
+
     def delete_document(self, document_id: str) -> bool:
         with self._connect() as connection:
             cursor = connection.execute("DELETE FROM documents WHERE id = ?", (document_id,))

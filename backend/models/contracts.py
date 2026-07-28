@@ -68,6 +68,7 @@ class RetrievalResult(BaseModel):
     score: float
     retrieval_profile: RetrievalProfile
     filename: str
+    category: str = "General"
     location_type: str
     location_value: str
 

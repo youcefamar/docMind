@@ -53,6 +53,8 @@ docmind/
 │   │   ├── embedder.py       # Extraction, chunking, and embedding boundary
 │   │   ├── ingestion.py      # Validation and document lifecycle
 │   │   ├── metadata_store.py # SQLite metadata/jobs/chunks
+│   │   ├── dense_index.py    # Persistent FAISS Fast retrieval
+│   │   ├── runtime.py        # Shared local runtime services
 │   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
 │   │   └── llm.py            # Local GGUF adapter (P4 replacement)
 │   ├── models/contracts.py   # Shared ingestion/retrieval/citation contracts

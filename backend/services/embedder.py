@@ -189,6 +189,19 @@ class EmbeddingService:
         else:
             return [self._fallback_vector(t) for t in texts]
 
+    def load_local_model(self, model_path: str, revision: Optional[str] = None) -> None:
+        """Load a cached SentenceTransformers model without network access."""
+        if SentenceTransformer is None:
+            raise RuntimeError("sentence-transformers is not installed")
+        self.model = SentenceTransformer(
+            model_path,
+            device="cpu",
+            local_files_only=True,
+            trust_remote_code=True,
+            revision=revision,
+        )
+        self.embedding_dimension = self.model.get_sentence_embedding_dimension()
+
     def _fallback_vector(self, text: str, dim: Optional[int] = None) -> List[float]:
         import hashlib
         import math
@@ -196,8 +209,61 @@ class EmbeddingService:
         dim = dim or self.embedding_dimension
         vec = []
         for i in range(dim):
-            h = hashlib.sha256(f"{text}_{i}".encode('utf-8')).hexdigest()
-            val = (int(h[:8], 16) / 0xffffffff) * 2.0 - 1.0
+            h = hashlib.sha256(f"{text}_{i}".encode("utf-8")).hexdigest()
+            val = (int(h[:8], 16) / 0xFFFFFFFF) * 2.0 - 1.0
             vec.append(val)
-        norm = math.sqrt(sum(x*x for x in vec)) or 1.0
+        norm = math.sqrt(sum(x * x for x in vec)) or 1.0
         return [x / norm for x in vec]
+
+
+class QwenEmbeddingService(EmbeddingService):
+    """Qwen3-Embedding adapter used by the frozen P2 dense index."""
+
+    MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
+
+    def __init__(
+        self,
+        model: Optional[Any] = None,
+        model_name: str = MODEL_NAME,
+        embedding_dimension: int = 1024,
+    ):
+        super().__init__(
+            model=model,
+            model_name=model_name,
+            embedding_dimension=embedding_dimension,
+        )
+        self.model_revision: Optional[str] = None
+
+    @property
+    def is_ready(self) -> bool:
+        return self.model is not None
+
+    def load_local_model(self, model_path: str, revision: Optional[str] = None) -> None:
+        super().load_local_model(model_path, revision=revision)
+        self.model_revision = revision or model_path
+
+    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        if self.model is None:
+            return [self._fallback_vector(text) for text in texts]
+
+        try:
+            embeddings = self.model.encode(
+                texts,
+                batch_size=8,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                normalize_embeddings=True,
+            )
+        except TypeError:
+            embeddings = self.model.encode(
+                texts,
+                batch_size=8,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+            )
+        rows = embeddings.tolist()
+        normalized = []
+        for row in rows:
+            norm = sum(value * value for value in row) ** 0.5 or 1.0
+            normalized.append([value / norm for value in row])
+        return normalized

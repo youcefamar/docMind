@@ -2,6 +2,13 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from main import app
+from models.contracts import (
+    DocumentRecord,
+    DocumentStatus,
+    RetrievalProfile,
+    RetrievalResult,
+)
+from routes import chat as chat_route
 from routes import documents as documents_route
 from services.ingestion import DocumentIngestionService
 
@@ -57,3 +64,58 @@ def test_upload_catalog_and_delete_use_local_ingestion(tmp_path: Path, monkeypat
     deleted = client.delete(f"/api/doc/{uploaded['doc_id']}")
     assert deleted.status_code == 200
     assert client.get("/api/docs").json() == []
+
+
+def test_ask_uses_fast_dense_results_when_available(monkeypatch):
+    class FakeMetadata:
+        def get_document(self, document_id):
+            now = "2026-01-01T00:00:00+00:00"
+            return DocumentRecord(
+                id=document_id,
+                filename="policy.md",
+                sha256="a" * 64,
+                size_bytes=10,
+                category="HR",
+                status=DocumentStatus.INDEXED,
+                original_path="policy.md",
+                chunk_count=1,
+                total_pages=1,
+                created_at=now,
+                updated_at=now,
+            )
+
+    class FakeDense:
+        model_ready = True
+        metadata_store = FakeMetadata()
+
+        def search(self, question, category=None, top_k=5):
+            return [
+                RetrievalResult(
+                    chunk_id="doc-1:chunk:1",
+                    document_id="doc-1",
+                    text="Remote work is allowed.",
+                    rank=1,
+                    score=0.91,
+                    retrieval_profile=RetrievalProfile.FAST,
+                    filename="policy.md",
+                    category="HR",
+                    location_type="page",
+                    location_value="1",
+                )
+            ]
+
+    class FakeLLM:
+        def generate_answer(self, question, sources, chat_history=None):
+            return "Remote work is allowed. [S1]", 0.91, "High"
+
+    monkeypatch.setattr(chat_route, "dense_index", FakeDense())
+    monkeypatch.setattr(chat_route, "llm_service", FakeLLM())
+
+    response = client.post(
+        "/api/ask",
+        json={"question": "Can I work remotely?", "retrieval_profile": "fast"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["retrieval_profile"] == "fast"
+    assert response.json()["sources"][0]["filename"] == "policy.md"

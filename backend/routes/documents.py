@@ -1,18 +1,11 @@
-import os
-from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from services.ingestion import DocumentIngestionService, IngestionError
+from services.ingestion import IngestionError
+from services.runtime import dense_index, ingestion_service
 
 router = APIRouter(prefix="/api", tags=["Documents"])
-
-DATA_ROOT = os.getenv(
-    "DOCMIND_DATA_DIR",
-    str(Path(__file__).resolve().parents[2] / "data"),
-)
-ingestion_service = DocumentIngestionService(DATA_ROOT)
 
 
 class DocumentSummary(BaseModel):
@@ -44,23 +37,20 @@ async def upload_documents(
     files: List[UploadFile] = File(...),
     category: str = Form("General"),
 ):
-    """Validate, store, and extract uploaded documents locally.
-
-    Vector indexing is intentionally a P2 concern. Until the FAISS/BM25
-    indexer is connected, successful documents are returned as
-    ``partially_indexed`` rather than being reported as fully indexed.
-    """
+    """Validate, extract, and index uploaded documents locally when configured."""
     if not files:
         raise HTTPException(status_code=400, detail="No files provided.")
 
     responses = []
     for file in files:
         try:
+            indexer = dense_index.index_document if dense_index and dense_index.model_ready else None
             result = ingestion_service.ingest(
                 filename=file.filename or "",
                 content=await file.read(),
                 category=category,
                 content_type=file.content_type,
+                indexer=indexer,
             )
             responses.append(
                 UploadResponse(
@@ -123,6 +113,8 @@ async def delete_document(doc_id: str):
         document = ingestion_service.metadata_store.get_document(doc_id)
         if not document or not ingestion_service.delete(doc_id):
             raise HTTPException(status_code=404, detail="Document not found.")
+        if dense_index and dense_index.model_ready:
+            dense_index.rebuild_from_store()
 
         return {
             "message": f"Successfully deleted document with ID '{doc_id}'",

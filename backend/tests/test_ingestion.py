@@ -56,6 +56,15 @@ def test_replace_preserves_document_identity_and_updates_hash(tmp_path: Path):
     assert Path(replacement.document.original_path).read_bytes() == b"Version two"
 
 
+def test_replace_cannot_create_duplicate_content(tmp_path: Path):
+    service = make_service(tmp_path)
+    service.ingest("first.md", b"Shared content")
+    service.ingest("second.md", b"Other content")
+
+    with pytest.raises(IngestionError, match="already stored"):
+        service.ingest("second.md", b"Shared content", replace=True)
+
+
 def test_invalid_pdf_signature_is_rejected(tmp_path: Path):
     service = make_service(tmp_path)
 

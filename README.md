@@ -3,6 +3,10 @@
 > **Problem**: Employees waste hours searching through bulky PDFs.  
 > **Solution**: DocMind allows employees to ask questions in plain natural language and receive instant, grounded answers accompanied by exact source document citations and page numbers.
 
+> **Current implementation status:** Research v1 is complete. P1 now provides
+> offline local ingestion and metadata persistence; FAISS/BM25 retrieval and
+> local Qwen generation are the next milestones.
+
 ---
 
 ## 🚀 Tech Stack
@@ -11,10 +15,11 @@
 |---|---|---|
 | **Frontend** | Next.js 15 (App Router) + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
 | **Backend** | FastAPI (Python 3.11) | High-performance async API framework for chunking, embedding & retrieval |
-| **LLM Inference** | Groq (`llama-3.1-8b-instant`) | Ultra-fast, zero-latency open LLM inference |
-| **Embeddings** | `sentence-transformers` (`all-MiniLM-L6-v2`) | Local, free, high-speed dense vector representations |
-| **Vector DB** | ChromaDB / pgvector | Persistent local or PostgreSQL vector storage |
-| **PDF Parsing** | `pypdf` | Lightweight page-by-page text extraction |
+| **LLM Inference** | Local Qwen3-4B target | Offline CPU-compatible generation (P4) |
+| **Embeddings** | Qwen3-Embedding-0.6B target | Frozen multilingual research winner (P2) |
+| **Metadata** | SQLite | Local document, job, block, and chunk persistence (P1) |
+| **Retrieval** | FAISS + BM25 target | Dense Fast mode and hybrid Quality mode (P2/P3) |
+| **Extraction** | `pypdf`, `python-docx`, `python-pptx`, `openpyxl` | Page, slide, sheet, and text extraction |
 | **Infra & DevOps** | Docker + Docker Compose | One-command full-stack container deployment |
 
 ---
@@ -45,10 +50,12 @@ docmind/
 │   │   ├── chat.py           # POST /api/ask Endpoint
 │   │   └── documents.py      # POST /upload, GET /docs, DELETE /doc
 │   ├── services/
-│   │   ├── embedder.py       # pypdf parsing & chunking
-│   │   ├── retriever.py      # ChromaDB query & similarity search
-│   │   └── llm.py            # Groq Llama 3.1 8B prompt engineering & confidence
-│   ├── db/chroma/            # Persistent Chroma Vector Store
+│   │   ├── embedder.py       # Extraction, chunking, and embedding boundary
+│   │   ├── ingestion.py      # Validation and document lifecycle
+│   │   ├── metadata_store.py # SQLite metadata/jobs/chunks
+│   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
+│   │   └── llm.py            # Local GGUF adapter (P4 replacement)
+│   ├── models/contracts.py   # Shared ingestion/retrieval/citation contracts
 │   ├── Dockerfile
 │   └── requirements.txt
 │
@@ -69,7 +76,7 @@ docmind/
   - Notebook available in `notebooks/rag_pipeline_demo.ipynb`.
 
 - [x] **Week 2 — FastAPI Backend Services**
-  - `POST /api/upload`: Upload single/multiple PDFs, extract text, chunk, embed, & save to ChromaDB under category metadata.
+  - `POST /api/upload`: Validate and store PDF, DOCX, PPTX, XLSX, XLS, TXT, and MD files locally, extract chunks, and persist metadata.
   - `POST /api/ask`: Takes question + chat history + category filter, retrieves sources, calls Groq LLM, assesses confidence.
   - `GET /api/docs`: Catalogs uploaded documents with page and chunk metrics.
   - `DELETE /api/doc/{id}`: Removes document vectors cleanly from vector store.
@@ -89,13 +96,10 @@ docmind/
 ## ⚡ Quickstart Guide
 
 ### 1. Environment Setup
-Copy `.env.example` to `.env`:
+No cloud API key is required for the P1 ingestion path. Optionally set the local
+data directory:
 ```bash
-cp .env.example .env
-```
-Provide your Groq API key:
-```env
-GROQ_API_KEY=gsk_your_actual_groq_api_key
+DOCMIND_DATA_DIR=../data
 ```
 
 ### 2. Local Development
@@ -148,8 +152,11 @@ docker-compose up --build -d
 
 ### 2. Upload Document
 `POST /api/upload` (Form Data)
-- `files`: File list (`.pdf`)
+- `files`: File list (`.pdf`, `.docx`, `.pptx`, `.xlsx`, `.xls`, `.txt`, `.md`)
 - `category`: String (`HR`, `Tech`, `Finance`, `Legal`, `Operations`, `General`)
+
+The response includes `status`. New documents are `partially_indexed` until the
+P2 FAISS/BM25 indexer is connected.
 
 ### 3. List Catalog
 `GET /api/docs`

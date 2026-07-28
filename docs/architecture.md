@@ -1,5 +1,10 @@
 # DocMind System Architecture 🏛️
 
+> This document contains the original prototype flow. The current offline
+> ingestion implementation is documented in [P1 ingestion](p1-ingestion.md);
+> FAISS/BM25 retrieval and local Qwen generation will replace the prototype
+> ChromaDB/Groq assumptions in the next milestones.
+
 DocMind is designed as a modular, lightweight Retrieval-Augmented Generation (RAG) platform that enables enterprise teams to query internal PDF documents in natural language with source citation grounding.
 
 ---

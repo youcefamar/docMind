@@ -38,6 +38,6 @@ the API response contract.
 ## Validation
 
 - Backend Ruff checks pass.
-- Backend test suite: **21 passed**.
+- Backend test suite: **22 passed**.
 - Tests cover extraction, signatures, duplicate detection, replacement,
   re-indexing, deletion, and API upload/catalog/delete behavior.

@@ -127,6 +127,11 @@ class DocumentIngestionService:
             return IngestionResult(document=existing_hash, job=job, duplicate=True)
 
         existing_name = self.metadata_store.find_by_filename(filename)
+        if existing_hash and (not existing_name or existing_hash.id != existing_name.id):
+            raise IngestionError(
+                "duplicate_content",
+                f"The content is already stored as '{existing_hash.filename}'.",
+            )
         if existing_name and existing_name.sha256 != digest and not replace:
             raise IngestionError(
                 "duplicate_filename",

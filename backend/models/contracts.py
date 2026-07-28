@@ -34,6 +34,9 @@ class DocumentRecord(BaseModel):
     status: DocumentStatus = DocumentStatus.QUEUED
     created_at: datetime
     updated_at: datetime
+    original_path: str = ""
+    chunk_count: int = Field(default=0, ge=0)
+    total_pages: int = Field(default=0, ge=0)
     error_detail: Optional[str] = None
 
 

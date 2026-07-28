@@ -401,7 +401,7 @@ Expected existing areas:
 - `backend/tests/`
 - `backend/pyproject.toml`
 
-### P0 — baseline and design audit
+### P0 — baseline and design audit — completed
 
 - confirm current endpoint contracts and frontend dependencies;
 - identify stale ChromaDB, pgvector, Groq, and local-GGUF assumptions;
@@ -410,13 +410,13 @@ Expected existing areas:
 - make the existing test command runnable;
 - record the intended offline startup path.
 
-### P1 — production ingestion and extraction
+### P1 — production ingestion and extraction — completed
 
-- create clean extractor boundaries for validated formats;
-- implement stable document/chunk metadata;
-- add duplicate, replace, delete, and re-index behavior;
-- add ingestion status and structured errors;
-- add extraction fixtures and targeted tests.
+- [x] create clean extractor boundaries for validated formats;
+- [x] implement stable document/chunk metadata;
+- [x] add duplicate, replace, delete, and re-index behavior;
+- [x] add ingestion status and structured errors;
+- [x] add extraction fixtures and targeted tests.
 
 ### P2 — embedding and Fast mode
 
@@ -626,8 +626,8 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Begin product milestone P0: audit the current backend/API/frontend contracts.
-2. Implement P1–P5 in small feature-branch changes.
+1. Begin product milestone P2: integrate Qwen3-Embedding-0.6B and persistent FAISS Fast mode.
+2. Keep P3 Quality mode and P4 local generation behind the same service contracts.
 3. Profile the integrated system on the target laptop.
 4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

@@ -14,6 +14,18 @@ interface DocumentSummary {
   error_detail?: string | null;
 }
 
+interface SyncStatus {
+  status: string;
+  source_dir: string;
+  discovered: number;
+  indexed: number;
+  unchanged: number;
+  removed: number;
+  failed: number;
+  last_sync_at?: string | null;
+  error?: string | null;
+}
+
 export default function UploadPanel() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
@@ -25,6 +37,8 @@ export default function UploadPanel() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchConfig = async () => {
     try {
@@ -55,10 +69,49 @@ export default function UploadPanel() {
     }
   };
 
+  const fetchSyncStatus = async (): Promise<SyncStatus | null> => {
+    try {
+      const res = await fetch('/api/backend/sources/status');
+      if (res.ok) {
+        const data = await res.json();
+        setSyncStatus(data);
+        return data;
+      }
+    } catch (err) {
+      console.error('Failed to fetch knowledge-folder status:', err);
+    }
+    return null;
+  };
+
   useEffect(() => {
     fetchConfig();
     fetchDocuments();
+    fetchSyncStatus();
   }, []);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setUploadMessage(null);
+    try {
+      const res = await fetch('/api/backend/sources/sync', { method: 'POST' });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.detail || 'Knowledge-folder sync failed');
+      setSyncStatus(payload.status);
+      const poll = async () => {
+        const latest = await fetchSyncStatus();
+        if (latest?.status === 'queued' || latest?.status === 'syncing') {
+          window.setTimeout(poll, 750);
+        } else {
+          setIsSyncing(false);
+          await fetchDocuments();
+        }
+      };
+      window.setTimeout(poll, 250);
+    } catch (err: any) {
+      setIsSyncing(false);
+      setUploadMessage({ type: 'error', text: err.message || 'Knowledge-folder sync failed.' });
+    }
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -307,10 +360,25 @@ export default function UploadPanel() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 className="text-lg font-bold text-white">Indexed Knowledge Base</h3>
-            <p className="text-xs text-gray-400">Manage uploaded documents and their local index status</p>
+            <p className="text-xs text-gray-400">Manage uploads or synchronize the configured knowledge folder</p>
+            {syncStatus && (
+              <p className="mt-1 text-[10px] text-gray-500" title={syncStatus.source_dir}>
+                Folder sync: <span className="text-gray-300">{syncStatus.status}</span>
+                {syncStatus.last_sync_at ? ` · ${new Date(syncStatus.last_sync_at).toLocaleString()}` : ''}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
+              title={syncStatus?.source_dir || 'Synchronize configured knowledge folder'}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing…' : 'Sync folder'}
+            </button>
             <input
               type="text"
               placeholder="Search documents..."

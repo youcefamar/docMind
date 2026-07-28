@@ -3,9 +3,10 @@
 > **Problem**: Employees waste hours searching through bulky PDFs.  
 > **Solution**: DocMind allows employees to ask questions in plain natural language and receive instant, grounded answers accompanied by exact source document citations and page numbers.
 
-> **Current implementation status:** Research v1 and backend milestones P1–P4
-> are implemented. The backend ingests local documents, retrieves with Fast or
-> Quality profiles, and generates locally with grounded citation validation.
+> **Current implementation status:** Research v1 and backend milestones P1–P5
+> are implemented. The backend ingests local documents, synchronizes a managed
+> knowledge folder, retrieves with Fast or Quality profiles, and generates
+> locally with grounded citation validation.
 
 ---
 
@@ -49,12 +50,14 @@ docmind/
 │   ├── routes/
 │   │   ├── chat.py           # POST /api/ask Endpoint
 │   │   ├── config.py         # GET /api/config/ Product configuration
-│   │   └── documents.py      # POST /upload, GET /docs, DELETE /doc
+│   │   ├── documents.py      # POST /upload, GET /docs, DELETE /doc
+│   │   └── sources.py        # Managed knowledge-folder sync/status
 │   ├── services/
 │   │   ├── embedder.py       # Extraction, chunking, and embedding boundary
 │   │   ├── ingestion.py      # Validation and document lifecycle
 │   │   ├── metadata_store.py # SQLite metadata/jobs/chunks
 │   │   ├── dense_index.py    # Persistent FAISS Fast retrieval
+│   │   ├── folder_sync.py    # Managed knowledge-folder reconciliation
 │   │   ├── runtime.py        # Shared local runtime services
 │   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
 │   │   └── llm.py            # Local Qwen GGUF generation + citation validation
@@ -100,10 +103,19 @@ docmind/
 
 ### 1. Environment Setup
 No cloud API key is required for the P1 ingestion path. Optionally set the local
-data directory:
+data and managed knowledge-folder directories:
 ```bash
 DOCMIND_DATA_DIR=../data
+DOCMIND_SOURCE_DIR=../data/knowledge
+DOCMIND_SYNC_ON_STARTUP=false
 ```
+
+Drop supported files into `DOCMIND_SOURCE_DIR` (including subfolders). Use the
+Knowledge Base screen's **Sync knowledge folder** action, or call the sync API,
+to detect new/changed files and remove files deleted from that folder. Set
+`DOCMIND_SYNC_ON_STARTUP=true` to queue one scan when the backend starts. The
+sync is explicit and hash-based; temporary download suffixes are ignored and a
+file that changes while it is being read is retried on the next sync.
 
 ### 2. Local Development
 
@@ -208,3 +220,12 @@ select it with `POST /api/models/select`:
 Downloads are stored locally and use a temporary file until complete. The
 server must have internet access only during this setup step; inference remains
 local and offline afterwards.
+
+### 8. Managed knowledge folder
+
+`POST /api/sources/sync` queues a scan and returns `202`; poll
+`GET /api/sources/status` for counts (`discovered`, `indexed`, `unchanged`,
+`removed`, and `failed`). Files are copied into the local data store and tracked
+by a hash manifest. A first-level folder matching a configured category (for
+example `knowledge/HR/handbook.pdf`) is assigned that category; other files use
+`DOCMIND_DEFAULT_CATEGORY`.

@@ -32,8 +32,16 @@ DOCMIND_CATEGORIES=General,HR,Tech,Finance,Legal,Operations
 DOCMIND_DEFAULT_CATEGORY=General
 DOCMIND_SUPPORTED_EXTENSIONS=.pdf,.docx,.pptx,.xlsx,.xls,.txt,.md
 DOCMIND_MAX_FILE_SIZE_MB=50
+DOCMIND_SOURCE_DIR=../data/knowledge
+DOCMIND_SYNC_ON_STARTUP=false
 NEXTAUTH_SECRET=docmind-super-secret-key-change-me
 ```
+
+Place shared documents under `DOCMIND_SOURCE_DIR`. From the Swagger page or
+the Knowledge Base screen, call `POST /api/sources/sync`; poll
+`GET /api/sources/status` until it reports `completed`. The service tracks file
+hashes, reprocesses changed files, and removes documents deleted from the source
+folder. A first-level category folder such as `knowledge/HR/` is optional.
 
 Alternatively, after starting the backend once, use the interactive Swagger
 page at `http://127.0.0.1:8000/docs`: call `GET /api/models/`, then

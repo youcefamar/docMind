@@ -460,6 +460,8 @@ retrieval top-k values are environment-backed and served to the frontend from
 
 ### P5 — API and frontend integration
 
+Status: implemented and covered by backend tests plus the Next.js production build.
+
 - keep routes thin and delegate work to services;
 - preserve working upload, list, ask, and delete flows;
 - add ingestion status to the knowledge-base UI;
@@ -467,6 +469,13 @@ retrieval top-k values are environment-backed and served to the frontend from
 - display filename and page/slide citation cards;
 - show indexing, failure, no-evidence, and local-model-loading states;
 - use the planned sidebar, chat, knowledge-base, and overview layout without copying the reference designs literally.
+
+P5 also includes the managed knowledge-folder workflow. `DOCMIND_SOURCE_DIR`
+is scanned explicitly through `POST /api/sources/sync` (and optionally once at
+startup), with hash-based add/change detection, deletion reconciliation, a
+persistent manifest, and status counts exposed at `GET /api/sources/status`.
+This keeps shared offline-folder operation reliable without introducing a
+platform-specific file watcher.
 
 ### P6 — local deployment profiling
 
@@ -641,8 +650,7 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Begin product milestone P5: connect frontend states to the retrieval and citation contracts.
-2. Profile the integrated system on the target laptop with real cached model weights.
-3. Run P7 hardening checks before portfolio claims.
-4. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
+1. Profile the integrated system on the target laptop with real cached model weights.
+2. Run P7 hardening checks before portfolio claims.
+3. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

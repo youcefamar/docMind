@@ -38,7 +38,7 @@ class IngestionResult(BaseModel):
     replaced: bool = False
 
 
-Indexer = Callable[[list[dict]], None]
+Indexer = Callable[[list[dict]], int | bool | None]
 
 
 class DocumentIngestionService:
@@ -210,8 +210,12 @@ class DocumentIngestionService:
 
             self.metadata_store.replace_content(document_id, blocks_by_id.values(), chunks)
             if indexer:
-                indexer(raw_chunks)
-                document.status = DocumentStatus.INDEXED
+                index_result = indexer(raw_chunks)
+                document.status = (
+                    DocumentStatus.PARTIALLY_INDEXED
+                    if index_result is False or index_result == 0
+                    else DocumentStatus.INDEXED
+                )
             else:
                 document.status = DocumentStatus.PARTIALLY_INDEXED
             document.chunk_count = len(chunks)

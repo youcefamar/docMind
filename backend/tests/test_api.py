@@ -11,6 +11,7 @@ from models.contracts import (
 from routes import chat as chat_route
 from routes import documents as documents_route
 from routes import models as models_route
+from routes import sources as sources_route
 from services.ingestion import DocumentIngestionService
 
 client = TestClient(app)
@@ -49,6 +50,31 @@ def test_runtime_status_exposes_safe_readiness_state():
     assert "embedding_ready" in payload
     assert "llm_ready" in payload
     assert "quality_ready" in payload
+
+
+def test_source_sync_status_exposes_managed_folder_state():
+    response = client.get("/api/sources/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] in {"idle", "queued", "syncing", "completed", "failed"}
+    assert "source_dir" in payload
+
+
+def test_source_sync_endpoint_queues_without_blocking(monkeypatch):
+    class FakeSync:
+        def start_background(self):
+            return True
+
+        def status(self):
+            return {"status": "queued", "source_dir": "C:/knowledge"}
+
+    monkeypatch.setattr(sources_route, "folder_sync_service", FakeSync())
+    response = client.post("/api/sources/sync")
+
+    assert response.status_code == 202
+    assert response.json()["queued"] is True
+    assert response.json()["status"]["status"] == "queued"
 
 def test_ask_question_empty_validation():
     response = client.post("/api/ask", json={"question": "   ", "category": "All"})

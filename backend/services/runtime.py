@@ -8,6 +8,7 @@ from pathlib import Path
 from services.bm25_index import BM25IndexService
 from services.dense_index import DenseIndexError, DenseIndexService
 from services.embedder import QwenEmbeddingService
+from services.folder_sync import FolderSyncService
 from services.ingestion import DocumentIngestionService
 from services.metadata_store import MetadataStore
 from services.quality_retriever import QualityRetriever
@@ -60,3 +61,14 @@ ingestion_service = DocumentIngestionService(
     DATA_ROOT,
     metadata_store=metadata_store,
 )
+
+folder_sync_service = FolderSyncService(
+    settings.source_dir,
+    ingestion_service,
+    metadata_store=metadata_store,
+    # Keep the callback dynamic: a later model load can make the next sync
+    # upgrade previously partially indexed documents without restarting.
+    indexer=index_document,
+)
+if settings.sync_on_startup:
+    folder_sync_service.start_background()

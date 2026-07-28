@@ -27,6 +27,8 @@ def _int_env(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class RuntimeSettings:
     data_dir: Path
+    source_dir: Path
+    sync_on_startup: bool
     categories: tuple[str, ...]
     default_category: str
     supported_extensions: tuple[str, ...]
@@ -66,6 +68,11 @@ class RuntimeSettings:
         default_data_dir = Path(__file__).resolve().parents[2] / "data"
         return cls(
             data_dir=Path(os.getenv("DOCMIND_DATA_DIR", str(default_data_dir))),
+            source_dir=Path(
+                os.getenv("DOCMIND_SOURCE_DIR", str(default_data_dir / "knowledge"))
+            ),
+            sync_on_startup=os.getenv("DOCMIND_SYNC_ON_STARTUP", "false").lower()
+            in {"1", "true", "yes", "on"},
             categories=categories,
             default_category=default_category,
             supported_extensions=normalized_extensions,

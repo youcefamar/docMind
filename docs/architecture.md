@@ -24,11 +24,11 @@ sequenceDiagram
 
     rect rgb(240, 244, 255)
     note right of Employee: 1. Ingestion Phase
-    Employee->>FE: Upload document (select configured category)
-    FE->>BE: POST /api/upload (Multipart form data)
+    Employee->>FE: Upload document or place it in managed knowledge folder
+    FE->>BE: POST /api/upload or POST /api/sources/sync
     BE->>BE: Extract text page-by-page (pypdf)
     BE->>BE: Chunk text (configured chunk size and overlap)
-    BE->>Emb: Generate 384d Embeddings
+    BE->>Emb: Generate configured multilingual embeddings
     Emb-->>BE: Return Vector Floating Arrays
     BE->>DB: Add Documents, Metadatas & Embeddings
     DB-->>BE: Confirmation
@@ -68,7 +68,10 @@ sequenceDiagram
 - **`main.py`**: Initializes ASGI app, handles CORS headers, mounts sub-routers, and provides `/health`.
 - **`routes/chat.py`**: Exposes `POST /api/ask`. Coordinates configured dense/lexical retrieval, local LLM generation, and response serialization.
 - **`routes/documents.py`**: Exposes `POST /api/upload`, `GET /api/docs`, and `DELETE /api/doc/{id}`.
-- **`services/embedder.py`**: Reads PDF bytes via `pypdf`, cleans whitespace, generates overlapping chunks with metadata (`doc_id`, `filename`, `category`, `page_number`, `chunk_index`), and embeds via `sentence-transformers` (`all-MiniLM-L6-v2`).
+- **`routes/sources.py`**: Exposes managed-folder sync/status endpoints. The
+  hash manifest detects additions, edits, and removals without a filesystem
+  watcher, which keeps the offline workstation flow explicit and predictable.
+- **`services/embedder.py`**: Reads supported local formats, cleans whitespace, generates overlapping chunks with metadata (`doc_id`, `filename`, `category`, `page_number`, `chunk_index`), and embeds with the configured multilingual model.
 - **`services/retriever.py`**: Retains the legacy pgvector adapter; the active path uses persistent FAISS/BM25 indexes with category metadata filtering.
 - **`services/llm.py`**: Runs the local Qwen3-4B GGUF adapter, formats deterministic
   source labels, validates citations, enforces insufficient-evidence behavior,
@@ -77,6 +80,6 @@ sequenceDiagram
 ---
 
 ## 🔒 Security & Data Isolation
-- **Data Persistence**: Vector store data is isolated inside `backend/db/chroma` (or a dedicated `pgvector` container).
+- **Data Persistence**: SQLite metadata, FAISS dense files, BM25 files, uploaded originals, and the managed-folder hash manifest live below the configured local data directory.
 - **Zero Hallucination Grounding**: System prompts explicitly prevent LLM speculation outside retrieved chunks.
 - **Network Boundaries**: In production, FastAPI API endpoints are restricted behind internal Docker network bridges or reverse proxies (Nginx / Hetzner VPS firewall).

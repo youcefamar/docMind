@@ -207,9 +207,9 @@ export default function UploadPanel() {
   };
 
   const statusClass = (status: string) => {
-    if (status === 'indexed') return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
-    if (status === 'failed') return 'bg-red-500/10 text-red-300 border-red-500/20';
-    return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+    if (status === 'indexed') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    if (status === 'failed') return 'border-rose-200 bg-rose-50 text-rose-700';
+    return 'border-amber-200 bg-amber-50 text-amber-700';
   };
 
   const filteredDocs = documents.filter(
@@ -222,55 +222,55 @@ export default function UploadPanel() {
   const totalChunksSum = documents.reduce((acc, d) => acc + d.chunk_count, 0);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       
       {/* Stats Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="glass-card p-5 rounded-2xl border border-gray-800 flex items-center gap-4">
-          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e8e8e5] bg-white p-5 shadow-[0_6px_20px_rgba(32,33,36,0.03)]">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-400 font-medium">Total Documents</p>
-            <h3 className="text-2xl font-bold text-white">{documents.length}</h3>
+            <p className="text-xs font-medium text-slate-500">Total documents</p>
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-900">{documents.length}</h3>
           </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-gray-800 flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e8e8e5] bg-white p-5 shadow-[0_6px_20px_rgba(32,33,36,0.03)]">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-600">
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-400 font-medium">Indexed Chunks</p>
-            <h3 className="text-2xl font-bold text-white">{totalChunksSum}</h3>
+            <p className="text-xs font-medium text-slate-500">Indexed chunks</p>
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-900">{totalChunksSum}</h3>
           </div>
         </div>
 
-        <div className="glass-card p-5 rounded-2xl border border-gray-800 flex items-center gap-4">
-          <div className="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
+        <div className="flex items-center gap-4 rounded-2xl border border-[#e8e8e5] bg-white p-5 shadow-[0_6px_20px_rgba(32,33,36,0.03)]">
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sky-600">
             <HardDrive className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-gray-400 font-medium">Total Document Pages</p>
-            <h3 className="text-2xl font-bold text-white">{totalPagesSum}</h3>
+            <p className="text-xs font-medium text-slate-500">Document pages</p>
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-900">{totalPagesSum}</h3>
           </div>
         </div>
       </div>
 
       {/* Upload Dropzone Form */}
-      <div className="glass-panel p-6 rounded-2xl border border-gray-800 shadow-xl">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-1">
-          <FolderPlus className="w-5 h-5 text-indigo-400" />
+      <div className="rounded-2xl border border-[#e8e8e5] bg-white p-5 shadow-[0_10px_30px_rgba(32,33,36,0.035)] sm:p-6">
+        <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900">
+          <FolderPlus className="h-5 w-5 text-slate-500" />
           <span>Upload & Index Documents</span>
         </h2>
-        <p className="text-xs text-gray-400 mb-6">
+        <p className="mb-6 text-xs text-slate-500">
           Documents are extracted, chunked, embedded locally, and saved into the configured knowledge store.
         </p>
 
         <form onSubmit={handleUpload} className="space-y-5">
           {/* Category Selector */}
           <div>
-            <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Assign Category Tag
             </label>
             <div className="flex flex-wrap gap-2">
@@ -281,8 +281,8 @@ export default function UploadPanel() {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                     selectedCategory === cat
-                      ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-gray-900/60 border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800'
+                      ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                      : 'border-[#e3e3e0] bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >
                   {cat}
@@ -292,7 +292,7 @@ export default function UploadPanel() {
           </div>
 
           {/* File Input Box */}
-          <div className="border-2 border-dashed border-gray-700 hover:border-indigo-500/60 rounded-2xl p-8 text-center bg-gray-950/40 transition-colors">
+          <div className="rounded-2xl border-2 border-dashed border-[#dfe0dc] bg-[#fafaf9] p-8 text-center transition-colors hover:border-slate-400 hover:bg-white">
             <input
               type="file"
               accept={supportedExtensions.join(',')}
@@ -302,16 +302,16 @@ export default function UploadPanel() {
               id="file-upload-input"
             />
             <label htmlFor="file-upload-input" className="cursor-pointer flex flex-col items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm">
                 <Upload className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-200">
+                <p className="text-sm font-semibold text-slate-700">
                   {files && files.length > 0
                     ? `${files.length} file(s) selected`
                     : `Click or drag supported files here to upload`}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-slate-400">
                   Supports {supportedExtensions.join(', ') || 'configured file types'} up to {maxFileSizeMb}MB each
                 </p>
               </div>
@@ -319,9 +319,9 @@ export default function UploadPanel() {
 
             {/* Selected File Names */}
             {files && files.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-800 flex flex-wrap justify-center gap-2">
+              <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-[#e7e7e4] pt-4">
                 {Array.from(files).map((f, i) => (
-                  <span key={i} className="text-xs bg-gray-800 text-indigo-300 px-3 py-1 rounded-md flex items-center gap-1.5 border border-gray-700">
+                  <span key={i} className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
                     <FileText className="w-3.5 h-3.5" />
                     {f.name}
                   </span>
@@ -335,7 +335,7 @@ export default function UploadPanel() {
             <button
               type="submit"
               disabled={isUploading || !files || files.length === 0}
-              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-40"
             >
               {isUploading ? (
                 <>
@@ -357,8 +357,8 @@ export default function UploadPanel() {
           <div
             className={`mt-4 p-4 rounded-xl flex items-center gap-3 text-xs border ${
               uploadMessage.type === 'success'
-                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                : 'bg-red-500/10 text-red-300 border-red-500/20'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-rose-200 bg-rose-50 text-rose-700'
             }`}
           >
             {uploadMessage.type === 'success' ? (
@@ -372,20 +372,20 @@ export default function UploadPanel() {
       </div>
 
       {/* Document Catalog Table */}
-      <div className="glass-panel p-6 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="rounded-2xl border border-[#e8e8e5] bg-white p-5 shadow-[0_10px_30px_rgba(32,33,36,0.035)] sm:p-6">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h3 className="text-lg font-bold text-white">Indexed Knowledge Base</h3>
-            <p className="text-xs text-gray-400">Manage uploads or synchronize the configured knowledge folder</p>
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">Indexed knowledge base</h3>
+            <p className="text-xs text-slate-500">Manage uploads or synchronize the configured knowledge folder</p>
             {syncStatus && (
-              <p className="mt-1 text-[10px] text-gray-500" title={syncStatus.source_dir}>
-                Folder sync: <span className="text-gray-300">{syncStatus.status}</span>
+              <p className="mt-1 text-[10px] text-slate-400" title={syncStatus.source_dir}>
+                Folder sync: <span className="text-slate-600">{syncStatus.status}</span>
                 {syncStatus.last_sync_at ? ` · ${new Date(syncStatus.last_sync_at).toLocaleString()}` : ''}
               </p>
             )}
             {syncStatus && syncStatus.failures && syncStatus.failures.length > 0 && (
               <p
-                className="mt-1 max-w-xl truncate text-[10px] text-amber-300"
+                className="mt-1 max-w-xl truncate text-[10px] text-amber-700"
                 title={syncStatus.failures.map((failure) => `${failure.path}: ${failure.error}`).join('\n')}
               >
                 {syncStatus.failures.length} source file(s) need attention.
@@ -397,7 +397,7 @@ export default function UploadPanel() {
             <button
               onClick={handleSync}
               disabled={isSyncing}
-              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
               title={syncStatus?.source_dir || 'Synchronize configured knowledge folder'}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
@@ -408,11 +408,11 @@ export default function UploadPanel() {
               placeholder="Search documents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-gray-950 px-3.5 py-1.5 text-xs text-gray-200 placeholder-gray-500 rounded-xl border border-gray-800 focus:outline-none focus:border-indigo-500"
+              className="rounded-xl border border-[#e3e3e0] bg-[#fafaf9] px-3.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none"
             />
             <button
               onClick={fetchDocuments}
-              className="p-2 rounded-xl bg-gray-900 text-gray-400 hover:text-white border border-gray-800 transition-colors"
+              className="rounded-xl border border-[#e3e3e0] bg-white p-2 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
               title="Refresh Document List"
             >
               <RefreshCw className={`w-4 h-4 ${isLoadingDocs ? 'animate-spin' : ''}`} />
@@ -422,9 +422,9 @@ export default function UploadPanel() {
 
         {/* Table View */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-gray-300 border-collapse">
+          <table className="w-full border-collapse text-left text-xs text-slate-600">
             <thead>
-              <tr className="border-b border-gray-800 bg-gray-900/50 text-gray-400 uppercase text-[10px] tracking-wider">
+              <tr className="border-b border-[#e8e8e5] bg-[#fafaf9] text-[10px] uppercase tracking-wider text-slate-400">
                 <th className="p-3">Document Name</th>
                 <th className="p-3">Category</th>
                 <th className="p-3">Total Pages</th>
@@ -434,16 +434,16 @@ export default function UploadPanel() {
                 <th className="p-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/60">
+            <tbody className="divide-y divide-[#eeeeeb]">
               {filteredDocs.length > 0 ? (
                 filteredDocs.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="p-3 font-medium text-white flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                  <tr key={doc.id} className="transition-colors hover:bg-[#fafaf9]">
+                    <td className="flex items-center gap-2 p-3 font-medium text-slate-700">
+                      <FileText className="h-4 w-4 flex-shrink-0 text-slate-400" />
                       <span className="truncate max-w-xs">{doc.filename}</span>
                     </td>
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
                         {doc.category}
                       </span>
                     </td>
@@ -454,12 +454,12 @@ export default function UploadPanel() {
                         {doc.status.replaceAll('_', ' ')}
                       </span>
                       {doc.error_detail && (
-                        <p className="mt-1 max-w-xs truncate text-[10px] text-red-300" title={doc.error_detail}>
+                        <p className="mt-1 max-w-xs truncate text-[10px] text-rose-600" title={doc.error_detail}>
                           {doc.error_detail}
                         </p>
                       )}
                     </td>
-                    <td className="p-3 text-gray-400">
+                    <td className="p-3 text-slate-400">
                       {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'Recent'}
                     </td>
                     <td className="p-3 text-right">
@@ -467,7 +467,7 @@ export default function UploadPanel() {
                         {doc.status !== 'indexed' && (
                           <button
                             onClick={() => handleReindex(doc.id, doc.filename)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
                             title="Re-index document"
                           >
                             <RefreshCw className="w-4 h-4" />
@@ -475,7 +475,7 @@ export default function UploadPanel() {
                         )}
                         <button
                           onClick={() => handleDelete(doc.id, doc.filename)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                           title="Delete document and local index entries"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -486,7 +486,7 @@ export default function UploadPanel() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="text-center p-8 text-gray-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
                     {isLoadingDocs ? 'Loading document catalog...' : 'No documents uploaded yet. Upload a supported file to get started!'}
                   </td>
                 </tr>

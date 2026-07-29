@@ -172,22 +172,22 @@ export default function ChatWindow() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)] max-w-5xl mx-auto glass-panel rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+    <div className="flex h-[calc(100vh-6.5rem)] min-h-[620px] max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#e8e8e5] bg-white shadow-[0_18px_50px_rgba(32,33,36,0.055)]">
       
       {/* Top Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between px-6 py-4 bg-gray-900/80 border-b border-gray-800 gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ededeb] bg-white px-5 py-4 sm:px-6">
         {/* Category Filters */}
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-          <Filter className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-          <span className="text-xs text-gray-400 font-medium mr-1">Filter:</span>
+          <Filter className="h-4 w-4 flex-shrink-0 text-slate-400" />
+          <span className="mr-1 text-xs font-medium text-slate-500">Scope</span>
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                 selectedCategory === cat
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'bg-gray-800/60 text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'border border-[#e8e8e5] bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800'
               }`}
             >
               {cat}
@@ -196,12 +196,12 @@ export default function ChatWindow() {
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <label htmlFor="retrieval-profile" className="text-gray-400">Retrieval:</label>
+          <label htmlFor="retrieval-profile" className="text-slate-500">Retrieval</label>
           <select
             id="retrieval-profile"
             value={selectedProfile}
             onChange={(event) => setSelectedProfile(event.target.value)}
-            className="rounded-lg border border-gray-700 bg-gray-900 px-2 py-1.5 text-gray-200 focus:border-indigo-500 focus:outline-none"
+            className="rounded-lg border border-[#e3e3e0] bg-[#fafaf9] px-2.5 py-1.5 font-medium text-slate-700 focus:border-slate-400 focus:outline-none"
           >
             {retrievalProfiles.map((profile) => (
               <option
@@ -216,17 +216,17 @@ export default function ChatWindow() {
           </select>
         </div>
 
-        <div className="flex items-center gap-2 text-[11px] text-gray-400">
-          <Cpu className="h-3.5 w-3.5 text-indigo-400" />
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          <Cpu className="h-3.5 w-3.5 text-slate-400" />
           <span>{runtimeStatus?.llm_ready ? runtimeStatus.llm_model : 'Local model not loaded'}</span>
-          <Database className={`h-3.5 w-3.5 ${runtimeStatus?.dense_index_ready ? 'text-emerald-400' : 'text-amber-400'}`} />
+          <Database className={`h-3.5 w-3.5 ${runtimeStatus?.dense_index_ready ? 'text-emerald-500' : 'text-amber-500'}`} />
           <span>{runtimeStatus?.dense_index_ready ? 'Index ready' : 'Indexing required'}</span>
         </div>
 
         {/* Clear Chat Action */}
         <button
           onClick={handleClearChat}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
           title="Clear Session History"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -235,21 +235,21 @@ export default function ChatWindow() {
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 space-y-7 overflow-y-auto bg-[#fcfcfb] p-5 sm:p-6">
         {messages.map((msg) => {
           const isUser = msg.sender === 'user';
 
           return (
             <div
               key={msg.id}
-              className={`flex gap-4 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}
+              className={`flex max-w-3xl gap-3.5 ${isUser ? 'ml-auto flex-row-reverse' : ''}`}
             >
               {/* Avatar */}
               <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
+                className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl shadow-sm ${
                   isUser
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white'
+                    ? 'bg-slate-200 text-slate-600'
+                    : 'bg-slate-900 text-white'
                 }`}
               >
                 {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
@@ -259,8 +259,8 @@ export default function ChatWindow() {
               <div className={`space-y-2 max-w-full ${isUser ? 'text-right' : 'text-left'}`}>
                 
                 {/* Meta header */}
-                <div className={`flex items-center gap-2 text-[11px] text-gray-400 ${isUser ? 'justify-end' : ''}`}>
-                  <span className="font-semibold text-gray-300">
+                <div className={`flex items-center gap-2 text-[11px] text-slate-400 ${isUser ? 'justify-end' : ''}`}>
+                  <span className="font-semibold text-slate-600">
                     {isUser ? 'You' : 'DocMind Assistant'}
                   </span>
                   <span>•</span>
@@ -271,10 +271,10 @@ export default function ChatWindow() {
                     <span
                       className={`ml-2 px-2 py-0.5 rounded-full font-semibold text-[10px] border flex items-center gap-1 ${
                         msg.confidenceLabel === 'High'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                           : msg.confidenceLabel === 'Medium'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                          : 'bg-red-500/10 text-red-400 border-red-500/30'
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-rose-200 bg-rose-50 text-rose-700'
                       }`}
                     >
                       <CheckCircle2 className="w-3 h-3" />
@@ -287,8 +287,8 @@ export default function ChatWindow() {
                 <div
                   className={`p-4 rounded-2xl text-sm leading-relaxed ${
                     isUser
-                      ? 'bg-indigo-600 text-white rounded-tr-none shadow-lg shadow-indigo-600/20'
-                      : 'glass-card text-gray-100 rounded-tl-none border border-gray-800'
+                      ? 'rounded-tr-none bg-slate-900 text-white shadow-sm'
+                      : 'rounded-tl-none border border-[#e7e7e4] bg-white text-slate-700 shadow-[0_4px_14px_rgba(32,33,36,0.025)]'
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -307,11 +307,11 @@ export default function ChatWindow() {
         {/* Loading Spinner Indicator */}
         {isLoading && (
           <div className="flex gap-4 max-w-3xl">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 animate-pulse">
+            <div className="flex h-9 w-9 flex-shrink-0 animate-pulse items-center justify-center rounded-xl bg-slate-900 text-white">
               <Bot className="w-5 h-5" />
             </div>
-            <div className="glass-card p-4 rounded-2xl rounded-tl-none border border-gray-800 text-sm text-indigo-300 flex items-center gap-3">
-              <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+            <div className="flex items-center gap-3 rounded-2xl rounded-tl-none border border-[#e7e7e4] bg-white p-4 text-sm text-slate-600 shadow-[0_4px_14px_rgba(32,33,36,0.025)]">
+              <RefreshCw className="h-4 w-4 animate-spin text-slate-700" />
               <span>Searching vectorized documents & synthesizing answer...</span>
             </div>
           </div>
@@ -322,9 +322,9 @@ export default function ChatWindow() {
 
       {/* Quick Prompts Suggestions (Shown if only welcome message present) */}
       {messages.length <= 1 && (
-        <div className="px-6 py-2">
-          <p className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+        <div className="border-t border-[#f0f0ee] bg-white px-5 py-3 sm:px-6">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+            <Sparkles className="h-3.5 w-3.5 text-slate-400" />
             Try asking:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -332,7 +332,7 @@ export default function ChatWindow() {
               <button
                 key={i}
                 onClick={() => handleSend(prompt)}
-                className="text-left text-xs bg-gray-900/60 hover:bg-gray-800 text-gray-300 hover:text-white p-2.5 rounded-xl border border-gray-800 transition-all truncate"
+                className="truncate rounded-xl border border-[#e6e6e3] bg-[#fafaf9] p-2.5 text-left text-xs text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900"
               >
                 "{prompt}"
               </button>
@@ -342,31 +342,31 @@ export default function ChatWindow() {
       )}
 
       {/* Input Form Bar */}
-      <div className="p-4 bg-gray-900/90 border-t border-gray-800">
+      <div className="border-t border-[#ededeb] bg-white p-4 sm:px-6">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
           }}
-          className="flex items-center gap-3 bg-gray-950 p-2 rounded-xl border border-gray-800 focus-within:border-indigo-500 transition-colors"
+          className="flex items-center gap-3 rounded-xl border border-[#dededb] bg-[#fafaf9] p-2 shadow-[0_3px_10px_rgba(32,33,36,0.025)] transition-colors focus-within:border-slate-400 focus-within:bg-white"
         >
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask a question in ${selectedCategory === 'All' ? 'all documents' : selectedCategory}...`}
-            className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none"
+            className="flex-1 bg-transparent px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="p-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium shadow-md shadow-indigo-600/30 transition-all flex-shrink-0"
+            className="flex-shrink-0 rounded-lg bg-slate-900 p-2.5 font-medium text-white shadow-sm transition-all hover:bg-slate-700 disabled:opacity-40"
           >
             <Send className="w-4 h-4" />
           </button>
         </form>
-        <p className="text-[11px] text-gray-500 text-center mt-2">
+        <p className="mt-2 text-center text-[11px] text-slate-400">
           DocMind grounds responses directly on indexed company PDFs with page citation verification.
         </p>
       </div>

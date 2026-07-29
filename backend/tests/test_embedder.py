@@ -27,3 +27,19 @@ def test_embedding_service_has_no_import_time_model_side_effect():
     service = EmbeddingService()
 
     assert service.model is None
+
+
+def test_local_model_load_uses_current_embedding_dimension_api(monkeypatch):
+    class FakeSentenceTransformer:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def get_embedding_dimension(self):
+            return 1024
+
+    monkeypatch.setattr("services.embedder.SentenceTransformer", FakeSentenceTransformer)
+    service = EmbeddingService()
+
+    service.load_local_model("C:/models/Qwen3-Embedding-0.6B")
+
+    assert service.embedding_dimension == 1024

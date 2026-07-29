@@ -205,7 +205,12 @@ class EmbeddingService:
             trust_remote_code=True,
             revision=revision,
         )
-        self.embedding_dimension = self.model.get_sentence_embedding_dimension()
+        # sentence-transformers renamed this method. Prefer the current API
+        # while preserving compatibility with older locally installed versions.
+        if hasattr(self.model, "get_embedding_dimension"):
+            self.embedding_dimension = self.model.get_embedding_dimension()
+        else:
+            self.embedding_dimension = self.model.get_sentence_embedding_dimension()
 
     def _fallback_vector(self, text: str, dim: Optional[int] = None) -> List[float]:
         import hashlib

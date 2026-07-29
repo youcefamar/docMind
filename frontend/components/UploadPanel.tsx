@@ -57,18 +57,30 @@ export default function UploadPanel() {
     }
   };
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (): Promise<DocumentSummary[]> => {
     setIsLoadingDocs(true);
     try {
       const res = await fetch('/api/backend/docs');
       if (res.ok) {
         const data = await readApiPayload<unknown>(res);
-        if (Array.isArray(data)) setDocuments(data as DocumentSummary[]);
+        if (Array.isArray(data)) {
+          const nextDocuments = data as DocumentSummary[];
+          setDocuments(nextDocuments);
+          return nextDocuments;
+        }
       }
     } catch (err) {
       console.error('Failed to fetch documents:', err);
     } finally {
       setIsLoadingDocs(false);
+    }
+    return [];
+  };
+
+  const refreshDocumentsUntilSettled = async () => {
+    const latest = await fetchDocuments();
+    if (latest.some((document) => document.status === 'processing' || document.status === 'queued')) {
+      window.setTimeout(refreshDocumentsUntilSettled, 1500);
     }
   };
 
@@ -149,7 +161,7 @@ export default function UploadPanel() {
         text: `Processed ${result.length} document(s): ${indexedCount} indexed${pendingCount ? `, ${pendingCount} awaiting indexing` : ''}.`,
       });
       setFiles(null);
-      fetchDocuments();
+      refreshDocumentsUntilSettled();
     } catch (err: any) {
       setUploadMessage({
         type: 'error',
@@ -188,7 +200,7 @@ export default function UploadPanel() {
         throw new Error(getApiErrorMessage(payload, `Re-index failed (HTTP ${res.status})`));
       }
       setUploadMessage({ type: 'success', text: `Re-indexed '${filename}'.` });
-      fetchDocuments();
+      refreshDocumentsUntilSettled();
     } catch (err: any) {
       setUploadMessage({ type: 'error', text: err.message || `Could not re-index '${filename}'.` });
     }

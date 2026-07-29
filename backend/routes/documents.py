@@ -1,9 +1,10 @@
 from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from models.contracts import DocumentStatus
 from pydantic import BaseModel
 from services.ingestion import IngestionError, IngestionResult
-from services.runtime import dense_index, index_document, ingestion_service
+from services.runtime import dense_index, indexing_queue, ingestion_service
 from services.settings import settings
 
 router = APIRouter(prefix="/api", tags=["Documents"])
@@ -64,14 +65,19 @@ async def upload_documents(
     responses = []
     for file in files:
         try:
-            indexer = index_document if dense_index and dense_index.model_ready else None
+            indexer_available = bool(dense_index and dense_index.model_ready)
             result = ingestion_service.ingest(
                 filename=file.filename or "",
                 content=await file.read(),
                 category=category,
                 content_type=file.content_type,
-                indexer=indexer,
+                indexer=None,
             )
+            if indexer_available and not result.duplicate and result.document.status is not DocumentStatus.FAILED:
+                indexing_queue.enqueue(result.document.id, force_rebuild=result.replaced)
+                refreshed = ingestion_service.metadata_store.get_document(result.document.id)
+                if refreshed:
+                    result.document = refreshed
             responses.append(_upload_response(result))
         except IngestionError as error:
             raise HTTPException(
@@ -91,8 +97,13 @@ async def upload_documents(
 @router.post("/doc/{doc_id}/reindex", response_model=UploadResponse)
 async def reindex_document(doc_id: str):
     try:
-        indexer = index_document if dense_index and dense_index.model_ready else None
-        result = ingestion_service.reindex(doc_id, indexer=indexer)
+        indexer_available = bool(dense_index and dense_index.model_ready)
+        result = ingestion_service.reindex(doc_id, indexer=None)
+        if indexer_available and result.document.status is not DocumentStatus.FAILED:
+            indexing_queue.enqueue(result.document.id, force_rebuild=True)
+            refreshed = ingestion_service.metadata_store.get_document(result.document.id)
+            if refreshed:
+                result.document = refreshed
         return _upload_response(result)
     except IngestionError as error:
         status_code = 404 if error.code == "not_found" else 400
@@ -133,7 +144,7 @@ async def delete_document(doc_id: str):
         if not document or not ingestion_service.delete(doc_id):
             raise HTTPException(status_code=404, detail="Document not found.")
         if dense_index and dense_index.model_ready:
-            index_document(doc_id)
+            indexing_queue.enqueue_rebuild()
 
         return {
             "message": f"Successfully deleted document with ID '{doc_id}'",

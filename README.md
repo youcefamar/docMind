@@ -58,6 +58,7 @@ docmind/
 │   │   ├── metadata_store.py # SQLite metadata/jobs/chunks
 │   │   ├── dense_index.py    # Persistent FAISS Fast retrieval
 │   │   ├── folder_sync.py    # Managed knowledge-folder reconciliation
+│   │   ├── indexing_queue.py  # Background CPU indexing worker
 │   │   ├── runtime.py        # Shared local runtime services
 │   │   ├── retriever.py      # Legacy pgvector adapter (P2 replacement)
 │   │   └── llm.py            # Local Qwen GGUF generation + citation validation
@@ -184,8 +185,10 @@ count, model backend, and stage latency in the terminal. Set
 - `files`: File list (`.pdf`, `.docx`, `.pptx`, `.xlsx`, `.xls`, `.txt`, `.md`)
 - `category`: A category returned by `GET /api/config/` (or `All` for chat)
 
-The response includes `status`. New documents are `partially_indexed` until the
-P2 FAISS/BM25 indexer is connected.
+The response includes `status`. When the local embedding model is ready, upload
+returns after extraction with `processing` while a background worker embeds and
+updates FAISS/BM25; the Knowledge Base status changes to `indexed` when complete.
+Replacements and deletions use a safe full-corpus rebuild in the same worker.
 
 The backend terminal prints upload diagnostics for each file. Look for
 `[UPLOAD] extraction complete`, `[UPLOAD] embedding/indexing start`,
@@ -196,6 +199,10 @@ plain-text proxy errors instead of attempting to parse them as JSON.
 
 ### 3. List Catalog
 `GET /api/docs`
+
+Document statuses may be `processing` while the local background index worker
+embeds a new upload. `GET /api/runtime/status` includes `indexing_queue` with
+the active document, pending count, and last worker error.
 
 ### 4. Delete Document
 `DELETE /api/doc/{doc_id}`

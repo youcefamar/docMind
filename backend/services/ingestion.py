@@ -40,7 +40,7 @@ class IngestionResult(BaseModel):
     replaced: bool = False
 
 
-Indexer = Callable[[list[dict]], int | bool | None]
+Indexer = Callable[[str | list[dict]], int | bool | None]
 
 logger = logging.getLogger("docmind.ingestion")
 
@@ -328,6 +328,100 @@ class DocumentIngestionService:
         self.metadata_store.save_document(document)
         self.metadata_store.save_job(job, document.updated_at.isoformat(), document.updated_at.isoformat())
         return IngestionResult(document=document, job=job)
+
+    def mark_indexing_queued(self, document_id: str) -> IngestionResult:
+        """Mark extracted content as waiting for the local index worker."""
+        document = self.metadata_store.get_document(document_id)
+        if not document:
+            raise IngestionError("not_found", f"Document '{document_id}' was not found.")
+        now = self._now()
+        document.status = DocumentStatus.PROCESSING
+        document.error_detail = None
+        document.updated_at = now
+        job = IngestionJob(
+            id=str(uuid.uuid4()),
+            document_id=document.id,
+            status=DocumentStatus.PROCESSING,
+            chunks_created=document.chunk_count,
+        )
+        self.metadata_store.save_document(document)
+        self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
+        logger.info(
+            "[UPLOAD] queued for background embedding/indexing file=%s document_id=%s chunks=%d",
+            document.filename,
+            document.id,
+            document.chunk_count,
+        )
+        return IngestionResult(document=document, job=job)
+
+    def index_existing(
+        self,
+        document_id: str,
+        indexer: Indexer,
+    ) -> IngestionResult:
+        """Index already-extracted content without reading or parsing the file again."""
+        document = self.metadata_store.get_document(document_id)
+        if not document:
+            raise IngestionError("not_found", f"Document '{document_id}' was not found.")
+        if not self.metadata_store.get_chunks(document_id):
+            return self._mark_failed(
+                document,
+                IngestionJob(
+                    id=str(uuid.uuid4()),
+                    document_id=document.id,
+                    status=DocumentStatus.PROCESSING,
+                ),
+                "No extracted chunks are available for indexing.",
+                "indexing_empty",
+            )
+
+        started_at = time.perf_counter()
+        job = IngestionJob(
+            id=str(uuid.uuid4()),
+            document_id=document.id,
+            status=DocumentStatus.PROCESSING,
+            chunks_created=document.chunk_count,
+        )
+        now = self._now()
+        document.status = DocumentStatus.PROCESSING
+        document.error_detail = None
+        document.updated_at = now
+        self.metadata_store.save_document(document)
+        self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
+        logger.info(
+            "[UPLOAD] background embedding/indexing start file=%s document_id=%s chunks=%d",
+            document.filename,
+            document.id,
+            document.chunk_count,
+        )
+        try:
+            index_result = indexer(document.id)
+            document.status = (
+                DocumentStatus.PARTIALLY_INDEXED
+                if index_result is False or index_result == 0
+                else DocumentStatus.INDEXED
+            )
+            document.updated_at = self._now()
+            job.status = document.status
+            job.chunks_created = document.chunk_count
+            self.metadata_store.save_document(document)
+            self.metadata_store.save_job(job, document.updated_at.isoformat(), document.updated_at.isoformat())
+            logger.info(
+                "[UPLOAD] background embedding/indexing complete file=%s document_id=%s status=%s elapsed_ms=%.1f",
+                document.filename,
+                document.id,
+                document.status.value,
+                (time.perf_counter() - started_at) * 1000,
+            )
+            return IngestionResult(document=document, job=job)
+        except Exception as error:
+            logger.exception(
+                "[UPLOAD] background embedding/indexing failed file=%s document_id=%s elapsed_ms=%.1f",
+                document.filename,
+                document.id,
+                (time.perf_counter() - started_at) * 1000,
+            )
+            return self._mark_failed(document, job, str(error), "indexing_failed")
 
     def reindex(self, document_id: str, indexer: Optional[Indexer] = None) -> IngestionResult:
         document = self.metadata_store.get_document(document_id)

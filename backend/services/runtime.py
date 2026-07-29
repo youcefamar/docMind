@@ -11,6 +11,7 @@ from services.bm25_index import BM25IndexService
 from services.dense_index import DenseIndexError, DenseIndexService
 from services.embedder import QwenEmbeddingService
 from services.folder_sync import FolderSyncService
+from services.indexing_queue import BackgroundIndexQueue
 from services.ingestion import DocumentIngestionService
 from services.metadata_store import MetadataStore
 from services.quality_retriever import QualityRetriever
@@ -69,7 +70,7 @@ if dense_index is not None:
 logger = logging.getLogger("docmind.index")
 
 
-def index_document(document_id: str | list[dict]) -> int:
+def index_document(document_id: str | list[dict], force_rebuild: bool = False) -> int:
     """Build both P3 indexes after a successful extraction."""
     document_label = document_id if isinstance(document_id, str) else "<ingestion-batch>"
     if dense_index is None or not dense_index.model_ready:
@@ -79,9 +80,17 @@ def index_document(document_id: str | list[dict]) -> int:
         )
         return 0
     started_at = time.perf_counter()
-    logger.info("[INDEX] start document=%s stages=embedding,dense,bm25", document_label)
+    mode = "incremental" if isinstance(document_id, str) and not force_rebuild else "full"
+    logger.info(
+        "[INDEX] start document=%s mode=%s stages=embedding,dense,bm25",
+        document_label,
+        mode,
+    )
     dense_started_at = time.perf_counter()
-    dense_count = dense_index.index_document(document_id)  # type: ignore[arg-type]
+    if isinstance(document_id, str) and not force_rebuild:
+        dense_count = dense_index.upsert_document(document_id)
+    else:
+        dense_count = dense_index.index_document(document_id)  # type: ignore[arg-type]
     logger.info(
         "[INDEX] dense complete document=%s chunks=%d elapsed_ms=%.1f",
         document_label,
@@ -103,6 +112,8 @@ ingestion_service = DocumentIngestionService(
     DATA_ROOT,
     metadata_store=metadata_store,
 )
+
+indexing_queue = BackgroundIndexQueue(ingestion_service, index_document)
 
 folder_sync_service = FolderSyncService(
     settings.source_dir,

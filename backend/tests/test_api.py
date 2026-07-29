@@ -134,6 +134,35 @@ def test_upload_catalog_and_delete_use_local_ingestion(tmp_path: Path, monkeypat
     assert client.get("/api/docs").json() == []
 
 
+def test_upload_returns_while_background_indexing_is_queued(tmp_path: Path, monkeypatch):
+    service = DocumentIngestionService(tmp_path / "data")
+    queued: list[tuple[str, bool]] = []
+
+    class FakeDense:
+        model_ready = True
+
+    class FakeQueue:
+        def enqueue(self, document_id: str, force_rebuild: bool = False):
+            queued.append((document_id, force_rebuild))
+            service.mark_indexing_queued(document_id)
+            return True
+
+    monkeypatch.setattr(documents_route, "ingestion_service", service)
+    monkeypatch.setattr(documents_route, "dense_index", FakeDense())
+    monkeypatch.setattr(documents_route, "indexing_queue", FakeQueue())
+
+    upload = client.post(
+        "/api/upload",
+        files={"files": ("policy.md", b"Remote work is allowed.", "text/markdown")},
+        data={"category": "HR"},
+    )
+
+    assert upload.status_code == 200
+    uploaded = upload.json()[0]
+    assert uploaded["status"] == "processing"
+    assert queued == [(uploaded["doc_id"], False)]
+
+
 def test_ask_uses_fast_dense_results_when_available(monkeypatch):
     class FakeMetadata:
         def get_document(self, document_id):

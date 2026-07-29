@@ -3,6 +3,7 @@ from services.runtime import (
     bm25_index,
     dense_index,
     embedding_service,
+    indexing_queue,
     metadata_store,
     quality_retriever,
     reranker,
@@ -29,4 +30,5 @@ async def runtime_status() -> dict:
         "llm_model": llm_service.model_name,
         "document_count": len(documents),
         "indexed_document_count": sum(document.status.value == "indexed" for document in documents),
+        "indexing_queue": indexing_queue.status(),
     }

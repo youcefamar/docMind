@@ -107,6 +107,18 @@ def test_dense_index_applies_category_filter(tmp_path: Path):
     assert [result.document_id for result in results] == ["doc-cat"]
 
 
+def test_dense_index_appends_new_document_without_rebuilding_existing_vectors(tmp_path: Path):
+    store = MetadataStore(tmp_path / "metadata.sqlite")
+    add_document(store, "doc-cat", "cats.md", "Animals", "Cats are quiet.")
+    service = DenseIndexService(tmp_path / "indexes", KeywordEmbedder(), store)
+    assert service.rebuild_from_store() == 1
+
+    add_document(store, "doc-dog", "dogs.md", "Animals", "Dogs are loyal.")
+
+    assert service.upsert_document("doc-dog") == 2
+    assert service.search("dogs", top_k=1)[0].document_id == "doc-dog"
+
+
 def test_dense_index_batched_rebuild_resumes_from_checkpoint(tmp_path: Path):
     store = MetadataStore(tmp_path / "metadata.sqlite")
     add_document(store, "doc-cat", "cats.md", "Animals", "Cats are quiet.")

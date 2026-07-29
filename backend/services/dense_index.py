@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -44,6 +45,7 @@ class DenseIndexService:
         self.metadata_store = metadata_store
         self.index: Optional[Any] = None
         self.chunk_ids: list[str] = []
+        self._lock = threading.RLock()
         self._load()
 
     @property
@@ -58,7 +60,8 @@ class DenseIndexService:
 
     @property
     def ready(self) -> bool:
-        return self.index is not None and bool(self.chunk_ids)
+        with self._lock:
+            return self.index is not None and bool(self.chunk_ids)
 
     @property
     def model_ready(self) -> bool:
@@ -102,8 +105,9 @@ class DenseIndexService:
             index.add(vectors)
 
         self._persist(index, [chunk.id for chunk in chunks])
-        self.index = index
-        self.chunk_ids = [chunk.id for chunk in chunks]
+        with self._lock:
+            self.index = index
+            self.chunk_ids = [chunk.id for chunk in chunks]
         return len(chunks)
 
     def rebuild_from_store(self) -> int:
@@ -190,8 +194,9 @@ class DenseIndexService:
                     resumed,
                 )
 
-        self.index = index
-        self.chunk_ids = indexed_ids
+        with self._lock:
+            self.index = index
+            self.chunk_ids = indexed_ids
         if checkpoint:
             checkpoint.unlink(missing_ok=True)
         return len(indexed_ids)
@@ -210,6 +215,37 @@ class DenseIndexService:
         """Rebuild after ingestion; rebuild-all keeps replacement/delete atomic."""
         del document_id
         return self.rebuild_from_store()
+
+    def upsert_document(self, document_id: str, force_rebuild: bool = False) -> int:
+        """Append a new document when safe, otherwise rebuild the full index.
+
+        New uploads are the common case and only need vectors for their own
+        chunks. Replacements, deletions, stale mappings, and an unavailable
+        active index fall back to the atomic full rebuild path.
+        """
+        chunks = self.metadata_store.get_chunks(document_id)
+        if force_rebuild or not self.ready or not chunks:
+            return self.rebuild_from_store()
+
+        current_chunk_ids = {chunk.id for chunk in self.metadata_store.list_chunks()}
+        if any(chunk_id not in current_chunk_ids for chunk_id in self.chunk_ids):
+            return self.rebuild_from_store()
+        indexed_chunk_ids = set(self.chunk_ids)
+        if all(chunk.id in indexed_chunk_ids for chunk in chunks):
+            return len(self.chunk_ids)
+        if any(chunk.id in indexed_chunk_ids for chunk in chunks):
+            return self.rebuild_from_store()
+
+        vectors = self._normalize(self.embedder.generate_embeddings([chunk.text for chunk in chunks]))
+        if vectors.shape[1] != self.dimension:
+            raise DenseIndexError(
+                f"Embedding dimension {vectors.shape[1]} does not match index dimension {self.dimension}"
+            )
+        with self._lock:
+            self.index.add(vectors)
+            self.chunk_ids.extend(chunk.id for chunk in chunks)
+            self._persist(self.index, self.chunk_ids)
+            return len(self.chunk_ids)
 
     def _persist(self, index: Any, chunk_ids: list[str]) -> None:
         temporary_index = self.index_path.with_suffix(".faiss.tmp")
@@ -250,17 +286,21 @@ class DenseIndexService:
         top_k: int = 5,
     ) -> list[RetrievalResult]:
         """Search with a precomputed normalized query vector for profiling."""
-        if not self.ready or top_k <= 0:
+        if top_k <= 0:
             return []
 
         query = self._normalize([query_vector])
-        fetch_k = min(max(top_k * 5, top_k), self.index.ntotal)
-        scores, ids = self.index.search(query, fetch_k)
+        with self._lock:
+            if self.index is None or not self.chunk_ids:
+                return []
+            fetch_k = min(max(top_k * 5, top_k), self.index.ntotal)
+            scores, ids = self.index.search(query, fetch_k)
+            chunk_ids = list(self.chunk_ids)
         results: list[RetrievalResult] = []
         for score, index_id in zip(scores[0], ids[0]):
             if index_id < 0:
                 continue
-            chunk = self.metadata_store.get_chunk(self.chunk_ids[int(index_id)])
+            chunk = self.metadata_store.get_chunk(chunk_ids[int(index_id)])
             if not chunk:
                 continue
             document = self.metadata_store.get_document(chunk.document_id)

@@ -503,6 +503,14 @@ folder synchronization exposes per-file extraction failures for diagnosis.
 The isolated profile cannot replace the active application indexes. This keeps a
 long CPU measurement or interrupted rebuild from taking the chatbot offline.
 
+#### P6.3 — background and incremental indexing — implemented
+
+- [x] return uploads after extraction instead of blocking the HTTP request on CPU embedding;
+- [x] serialize local index work through a single background worker;
+- [x] append vectors for new documents when the active dense index is consistent;
+- [x] keep replacement and deletion operations on the safe full-rebuild path;
+- [x] expose queue state through runtime status and poll document status in the UI.
+
 Run the integrated application on the target laptop and measure components separately:
 
 - model download and disk size;
@@ -674,7 +682,7 @@ Do not claim production Arabic, OCR, or spreadsheet support until the correspond
 
 ## 13. Immediate next actions
 
-1. Run the isolated P6.2 full-corpus profile on the target laptop with real cached model weights.
+1. Resume the isolated P6.2 full-corpus profile after confirming the background index worker is suitable for daily uploads.
 2. Run P7 hardening checks before portfolio claims.
 3. Treat XLSX, OCR, Arabic, and benchmark expansion as independent future features.
 

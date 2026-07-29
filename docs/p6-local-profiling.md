@@ -90,7 +90,18 @@ run directory, for example:
 This is a deployment constraint, not a completed full-corpus latency result. The
 active `data/indexes/` files were not modified. The next optimization should be
 background/incremental indexing or a faster CPU embedding runtime before claiming
-full-corpus P6.2 timings.
+full-corpus P6.2 timings. P6.3 now provides the background worker and safe
+incremental path for normal new-document uploads; full rebuilds remain resumable
+maintenance work.
+
+## P6.3 — background and incremental indexing
+
+Normal uploads and re-index requests now return after extraction and queue their
+embedding/index work on a single local worker. New documents append only their
+own vectors when the active FAISS mapping is consistent. Replacements, deletes,
+stale mappings, and interrupted rebuilds use the atomic full-rebuild path. The
+queue state is included in `GET /api/runtime/status`, and the Knowledge Base UI
+refreshes documents while they are `processing`.
 
 ## Measurement captured on 2026-07-28
 

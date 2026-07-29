@@ -9,7 +9,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 
 from models.contracts import (
     ChunkRecord,
@@ -353,6 +353,34 @@ class DocumentIngestionService:
             document.chunk_count,
         )
         return IngestionResult(document=document, job=job)
+
+    def complete_catalog_indexing(self, document_ids: Iterable[str], indexed: bool) -> int:
+        """Finalize source documents after one queued catalog rebuild.
+
+        A full rebuild has no single document to finalize. The queue supplies the
+        affected document IDs so unchanged uploads are never marked indexed by a
+        rebuild that may have started before they were persisted.
+        """
+        completed = 0
+        for document_id in set(document_ids):
+            document = self.metadata_store.get_document(document_id)
+            if not document or not self.metadata_store.get_chunks(document_id):
+                continue
+
+            now = self._now()
+            document.status = DocumentStatus.INDEXED if indexed else DocumentStatus.PARTIALLY_INDEXED
+            document.error_detail = None
+            document.updated_at = now
+            job = IngestionJob(
+                id=str(uuid.uuid4()),
+                document_id=document.id,
+                status=document.status,
+                chunks_created=document.chunk_count,
+            )
+            self.metadata_store.save_document(document)
+            self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
+            completed += 1
+        return completed
 
     def index_existing(
         self,

@@ -511,6 +511,14 @@ long CPU measurement or interrupted rebuild from taking the chatbot offline.
 - [x] keep replacement and deletion operations on the safe full-rebuild path;
 - [x] expose queue state through runtime status and poll document status in the UI.
 
+#### P6.4 — managed knowledge-folder scheduling — implemented
+
+- [x] keep source-folder discovery and text extraction off the request path;
+- [x] queue new source files for incremental indexing rather than rebuilding the full corpus per file;
+- [x] queue at most one safe full rebuild for a sync containing replacements or removals;
+- [x] preserve document statuses and report queued work accurately after sync completion;
+- [x] reject a stale source-folder manifest before it can remove documents from a different source root.
+
 Run the integrated application on the target laptop and measure components separately:
 
 - model download and disk size;

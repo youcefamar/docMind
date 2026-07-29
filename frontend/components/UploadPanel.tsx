@@ -23,9 +23,12 @@ interface SyncStatus {
   unchanged: number;
   removed: number;
   failed: number;
+  queued?: number;
+  rebuild_queued?: boolean;
   last_sync_at?: string | null;
   error?: string | null;
   failures?: Array<{ path: string; error: string }>;
+  warnings?: string[];
 }
 
 export default function UploadPanel() {
@@ -122,6 +125,7 @@ export default function UploadPanel() {
         } else {
           setIsSyncing(false);
           await fetchDocuments();
+          refreshDocumentsUntilSettled();
         }
       };
       window.setTimeout(poll, 250);
@@ -381,8 +385,15 @@ export default function UploadPanel() {
               <p className="mt-1 text-[10px] text-slate-400" title={syncStatus.source_dir}>
                 Folder sync: <span className="text-slate-600">{syncStatus.status}</span>
                 {syncStatus.last_sync_at ? ` · ${new Date(syncStatus.last_sync_at).toLocaleString()}` : ''}
+                {syncStatus.queued ? ` · ${syncStatus.queued} document(s) queued for indexing` : ''}
+                {syncStatus.rebuild_queued ? ' · safe rebuild queued' : ''}
               </p>
             )}
+            {syncStatus?.warnings?.map((warning) => (
+              <p key={warning} className="mt-1 max-w-xl truncate text-[10px] text-amber-700" title={warning}>
+                {warning}
+              </p>
+            ))}
             {syncStatus && syncStatus.failures && syncStatus.failures.length > 0 && (
               <p
                 className="mt-1 max-w-xl truncate text-[10px] text-amber-700"

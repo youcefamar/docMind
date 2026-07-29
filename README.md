@@ -240,9 +240,15 @@ local and offline afterwards.
 
 `POST /api/sources/sync` queues a scan and returns `202`; poll
 `GET /api/sources/status` for counts (`discovered`, `indexed`, `unchanged`,
-`removed`, and `failed`) plus per-file failure diagnostics. Files are copied into the local data store and tracked
-by a hash manifest. A first-level folder matching a configured category (for
-example `knowledge/HR/handbook.pdf`) is assigned that category; other files use
+`removed`, `failed`, and `queued`) plus per-file failure diagnostics. The scan
+finishes after local extraction; documents can remain `processing` while the
+single index worker embeds them. New files are queued for incremental indexing.
+If a scan contains a replacement or removal, it queues one safe full-catalog
+rebuild for the entire scan, never one rebuild per file. Files are copied into
+the local data store and tracked by a source-root-bound hash manifest; a legacy
+or different-root manifest is ignored rather than deleting documents. A
+first-level folder matching a configured category (for example
+`knowledge/HR/handbook.pdf`) is assigned that category; other files use
 `DOCMIND_DEFAULT_CATEGORY`.
 
 ### 9. Local profiling

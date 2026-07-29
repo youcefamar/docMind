@@ -29,14 +29,16 @@ class FolderSyncService:
         source_dir: str | Path,
         ingestion_service: DocumentIngestionService,
         metadata_store: Optional[MetadataStore] = None,
-        indexer: Optional[Callable[[str], int]] = None,
+        queue_document: Optional[Callable[[str, bool], bool]] = None,
+        queue_rebuild: Optional[Callable[[list[str]], bool]] = None,
         manifest_path: str | Path | None = None,
     ):
         self.source_dir = Path(source_dir)
         self.source_dir.mkdir(parents=True, exist_ok=True)
         self.ingestion_service = ingestion_service
         self.metadata_store = metadata_store or ingestion_service.metadata_store
-        self.indexer = indexer
+        self.queue_document = queue_document
+        self.queue_rebuild = queue_rebuild
         self.manifest_path = Path(manifest_path or ingestion_service.data_root / "sync_manifest.json")
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -48,7 +50,10 @@ class FolderSyncService:
             "unchanged": 0,
             "removed": 0,
             "failed": 0,
+            "queued": 0,
+            "rebuild_queued": False,
             "failures": [],
+            "warnings": [],
             "last_sync_at": None,
             "error": None,
         }
@@ -81,7 +86,10 @@ class FolderSyncService:
                     "unchanged": 0,
                     "removed": 0,
                     "failed": 0,
+                    "queued": 0,
+                    "rebuild_queued": False,
                     "failures": [],
+                    "warnings": [],
                     "error": None,
                 }
             )
@@ -101,7 +109,7 @@ class FolderSyncService:
         return self.status()
 
     def _sync_files(self) -> dict:
-        manifest = self._load_manifest()
+        manifest, manifest_warning = self._load_manifest()
         files = {
             path.relative_to(self.source_dir).as_posix(): path
             for path in self._iter_source_files()
@@ -112,9 +120,15 @@ class FolderSyncService:
             "unchanged": 0,
             "removed": 0,
             "failed": 0,
+            "queued": 0,
+            "rebuild_queued": False,
             "failures": [],
+            "warnings": [manifest_warning] if manifest_warning else [],
         }
         next_manifest: dict[str, dict] = {}
+        incremental_document_ids: set[str] = set()
+        rebuild_document_ids: set[str] = set()
+        requires_rebuild = False
 
         for relative_path, path in sorted(files.items()):
             previous = manifest.get(relative_path, {})
@@ -131,36 +145,61 @@ class FolderSyncService:
                 continue
             digest = hashlib.sha256(content).hexdigest()
             document = self.metadata_store.get_document(previous.get("doc_id", "")) if previous else None
-            if previous.get("sha256") == digest and document:
-                if document.status == DocumentStatus.INDEXED or not self.indexer:
+            if (
+                previous.get("sha256") == digest
+                and document
+                and self.metadata_store.get_chunks(document.id)
+            ):
+                if document.status == DocumentStatus.INDEXED or not self.queue_document:
                     counts["unchanged"] += 1
                     next_manifest[relative_path] = previous
                     continue
-                try:
-                    self.ingestion_service.reindex(document.id, indexer=self.indexer)
-                    counts["indexed"] += 1
-                    next_manifest[relative_path] = previous
-                    continue
-                except IngestionError:
-                    pass
+                incremental_document_ids.add(document.id)
+                counts["unchanged"] += 1
+                next_manifest[relative_path] = previous
+                continue
 
-            display_name = previous.get("filename") or self._display_filename(relative_path, manifest)
+            managed = bool(previous.get("managed", True)) if previous else False
+            display_name = (
+                previous.get("filename")
+                if previous and managed
+                else self._display_filename(relative_path, manifest)
+            )
             try:
                 result = self.ingestion_service.ingest(
                     filename=display_name,
                     content=content,
                     category=self._category_for(relative_path),
-                    replace=bool(document),
-                    indexer=self.indexer,
+                    replace=bool(document and managed),
+                    indexer=None,
                 )
+                # A server interrupted during extraction can leave a valid hash
+                # with no chunks. Repair it from the source bytes before any
+                # background indexing task is scheduled.
+                if result.duplicate and not self.metadata_store.get_chunks(result.document.id):
+                    result = self.ingestion_service.ingest(
+                        filename=result.document.filename,
+                        content=content,
+                        category=self._category_for(relative_path),
+                        replace=True,
+                        indexer=None,
+                    )
                 if result.document.status == DocumentStatus.FAILED:
                     raise IngestionError("ingestion_failed", result.document.error_detail or "Ingestion failed")
                 next_manifest[relative_path] = {
                     "doc_id": result.document.id,
                     "filename": result.document.filename,
                     "sha256": digest,
+                    # A duplicate may belong to a manual upload. Removing the source
+                    # file must never delete a document that this sync did not create.
+                    "managed": managed or not result.duplicate,
                 }
                 counts["indexed"] += 1
+                if managed:
+                    requires_rebuild = True
+                    rebuild_document_ids.add(result.document.id)
+                elif result.document.status != DocumentStatus.INDEXED:
+                    incremental_document_ids.add(result.document.id)
             except Exception as error:
                 counts["failed"] += 1
                 counts.setdefault("failures", []).append(
@@ -174,10 +213,23 @@ class FolderSyncService:
             if relative_path in files:
                 continue
             document_id = previous.get("doc_id")
-            if document_id and self.ingestion_service.delete(document_id):
-                if self.indexer:
-                    self.indexer(document_id)
+            if previous.get("managed", True) and document_id and self.ingestion_service.delete(document_id):
                 counts["removed"] += 1
+                requires_rebuild = True
+            elif not previous.get("managed", True):
+                counts["removed"] += 1
+
+        if requires_rebuild:
+            # One atomic rebuild is enough for every changed, removed, and newly
+            # extracted document in this scan. Never rebuild once per source file.
+            rebuild_document_ids.update(incremental_document_ids)
+            if self.queue_rebuild and self.queue_rebuild(sorted(rebuild_document_ids)):
+                counts["queued"] = len(rebuild_document_ids)
+                counts["rebuild_queued"] = True
+        elif self.queue_document:
+            for document_id in sorted(incremental_document_ids):
+                if self.queue_document(document_id, False):
+                    counts["queued"] += 1
 
         self._save_manifest(next_manifest)
         return counts
@@ -221,16 +273,39 @@ class FolderSyncService:
         suffix = source_path.suffix
         return f"{stem[:max(1, 240 - len(suffix))]}{suffix}"
 
-    def _load_manifest(self) -> dict[str, dict]:
+    def _source_identity(self) -> str:
+        return str(self.source_dir.resolve())
+
+    def _load_manifest(self) -> tuple[dict[str, dict], Optional[str]]:
         if not self.manifest_path.is_file():
-            return {}
+            return {}, None
         try:
             payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-            return payload if isinstance(payload, dict) else {}
+            if not isinstance(payload, dict):
+                return {}, "Ignored an invalid knowledge-folder manifest."
+            if payload.get("version") != 2:
+                return {}, "Ignored a legacy manifest to protect documents from a stale source-folder mapping."
+            if payload.get("source_dir") != self._source_identity():
+                return {}, "Ignored a manifest created for a different knowledge folder."
+            files = payload.get("files")
+            if not isinstance(files, dict):
+                return {}, "Ignored an invalid knowledge-folder manifest."
+            return files, None
         except (OSError, json.JSONDecodeError):
-            return {}
+            return {}, "Ignored an unreadable knowledge-folder manifest."
 
     def _save_manifest(self, manifest: dict[str, dict]) -> None:
         temporary = self.manifest_path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "source_dir": self._source_identity(),
+                    "files": manifest,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         temporary.replace(self.manifest_path)

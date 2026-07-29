@@ -115,13 +115,32 @@ ingestion_service = DocumentIngestionService(
 
 indexing_queue = BackgroundIndexQueue(ingestion_service, index_document)
 
+
+def queue_document_index(document_id: str, force_rebuild: bool = False) -> bool:
+    """Schedule a source document only when local embeddings are available."""
+    if dense_index is None or not dense_index.model_ready:
+        logger.warning(
+            "[INDEX_QUEUE] not queued document=%s reason=dense_embedding_model_not_ready",
+            document_id,
+        )
+        return False
+    return indexing_queue.enqueue(document_id, force_rebuild=force_rebuild)
+
+
+def queue_catalog_rebuild(document_ids: list[str]) -> bool:
+    """Schedule one safe rebuild for source replacements or removals."""
+    if dense_index is None or not dense_index.model_ready:
+        logger.warning("[INDEX_QUEUE] full rebuild not queued reason=dense_embedding_model_not_ready")
+        return False
+    return indexing_queue.enqueue_rebuild(document_ids)
+
+
 folder_sync_service = FolderSyncService(
     settings.source_dir,
     ingestion_service,
     metadata_store=metadata_store,
-    # Keep the callback dynamic: a later model load can make the next sync
-    # upgrade previously partially indexed documents without restarting.
-    indexer=index_document,
+    queue_document=queue_document_index,
+    queue_rebuild=queue_catalog_rebuild,
 )
 if settings.sync_on_startup:
     folder_sync_service.start_background()

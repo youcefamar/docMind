@@ -1,9 +1,12 @@
 """Managed knowledge-folder synchronization endpoints."""
 
+import logging
+
 from fastapi import APIRouter
 from services.runtime import folder_sync_service
 
 router = APIRouter(prefix="/api/sources", tags=["Knowledge Sources"])
+logger = logging.getLogger("docmind.sources")
 
 
 @router.get("/status")
@@ -16,6 +19,11 @@ async def source_sync_status() -> dict:
 async def sync_sources() -> dict:
     """Queue a non-blocking scan of the configured knowledge folder."""
     queued = folder_sync_service.start_background()
+    logger.info(
+        "[SYNC] request received %s folder=%s",
+        "✅ accepted" if queued else "↪ already running",
+        folder_sync_service.status()["source_dir"],
+    )
     return {
         "message": "Knowledge-folder synchronization queued." if queued else "A synchronization is already running.",
         "queued": queued,

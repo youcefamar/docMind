@@ -191,11 +191,12 @@ updates FAISS/BM25; the Knowledge Base status changes to `indexed` when complete
 Replacements and deletions use a safe full-corpus rebuild in the same worker.
 
 The backend terminal prints upload diagnostics for each file. Look for
-`[UPLOAD] extraction complete`, `[UPLOAD] embedding/indexing start`,
-`[EMBED] complete`, and `[INDEX] ... complete` to see where time is spent. If a
-request fails before FastAPI can produce a normal response, the API returns a
-JSON error telling you to check those terminal logs; the frontend also accepts
-plain-text proxy errors instead of attempting to parse them as JSON.
+`[UPLOAD] extraction complete ✅`, `[INDEX_QUEUE] 🚀 started`, `[EMBED] complete ✅`,
+and `[INDEX_QUEUE] 🎉 all queued indexing work is finished`. That final 🎉 line
+means every queued document is ready to search. If a request fails before
+FastAPI can produce a normal response, the API returns a JSON error telling you
+to check those terminal logs; the frontend also accepts plain-text proxy errors
+instead of attempting to parse them as JSON.
 
 ### 3. List Catalog
 `GET /api/docs`
@@ -250,6 +251,35 @@ or different-root manifest is ignored rather than deleting documents. A
 first-level folder matching a configured category (for example
 `knowledge/HR/handbook.pdf`) is assigned that category; other files use
 `DOCMIND_DEFAULT_CATEGORY`.
+
+The terminal prints `📂`, `📄`, `📥`, `✅`, `⏳`, and `❌` messages for the scan,
+each source file, queued indexing, and failures. Successful frontend polling
+requests (`GET /api/docs`, source status, and runtime status) are intentionally
+hidden from the terminal so these progress messages stay readable; their errors
+remain visible.
+
+#### Make the managed folder the source of truth
+
+For a one-time migration from an old mixed catalog, stop the backend first and
+run a dry run:
+
+```powershell
+cd backend
+.venv\Scripts\python.exe scripts\retain_knowledge_folder.py
+```
+
+The script requires a version-2 `sync_manifest.json`, reports the documents it
+would remove, and makes no changes without `--confirm`. Once the dry run is
+correct, run it with confirmation:
+
+```powershell
+.venv\Scripts\python.exe scripts\retain_knowledge_folder.py --confirm
+```
+
+It copies the SQLite catalog, originals, manifest, and index files to a
+timestamped `data/backups/knowledge-catalog-migration-*` directory before
+removing untracked records. Restart the backend and run one folder sync to
+create the clean index from the retained documents.
 
 ### 9. Local profiling
 

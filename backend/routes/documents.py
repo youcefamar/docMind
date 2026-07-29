@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -8,6 +9,7 @@ from services.runtime import dense_index, indexing_queue, ingestion_service
 from services.settings import settings
 
 router = APIRouter(prefix="/api", tags=["Documents"])
+logger = logging.getLogger("docmind.documents")
 
 
 class DocumentSummary(BaseModel):
@@ -85,7 +87,7 @@ async def upload_documents(
                 detail={"code": error.code, "message": error.message},
             ) from error
         except Exception as error:
-            print(f"[Upload Error] File {file.filename}: {error}")
+            logger.exception("[UPLOAD] request failed ❌ file=%s", file.filename or "<missing>")
             raise HTTPException(
                 status_code=500,
                 detail=f"Failed to process document '{file.filename}': {error}",
@@ -133,7 +135,7 @@ async def get_documents():
             for document in documents
         ]
     except Exception as error:
-        print(f"[Get Docs Error] {error}")
+        logger.exception("[CATALOG] listing failed ❌")
         raise HTTPException(status_code=500, detail=f"Error listing documents: {error}") from error
 
 
@@ -153,5 +155,5 @@ async def delete_document(doc_id: str):
     except HTTPException:
         raise
     except Exception as error:
-        print(f"[Delete Doc Error] {error}")
+        logger.exception("[DELETE] failed ❌ document_id=%s", doc_id)
         raise HTTPException(status_code=500, detail=f"Error deleting document: {error}") from error

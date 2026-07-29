@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
@@ -14,6 +16,8 @@ from models.contracts import DocumentStatus
 from services.ingestion import DocumentIngestionService, IngestionError
 from services.metadata_store import MetadataStore
 from services.settings import settings
+
+logger = logging.getLogger("docmind.folder_sync")
 
 
 class FolderSyncService:
@@ -67,16 +71,20 @@ class FolderSyncService:
         """Queue one sync, returning false when another sync is already running."""
         with self._lock:
             if self._status["status"] in {"queued", "syncing"}:
+                logger.info("[SYNC] ↪ already active status=%s", self._status["status"])
                 return False
             self._status.update({"status": "queued", "error": None})
+        logger.info("[SYNC] ⏳ queued folder=%s", self.source_dir.resolve())
         thread = threading.Thread(target=self.sync, name="docmind-folder-sync", daemon=True)
         thread.start()
         return True
 
     def sync(self) -> dict:
         """Synchronize the folder synchronously and return its final status."""
+        started_at = time.perf_counter()
         with self._lock:
             if self._status["status"] == "syncing":
+                logger.info("[SYNC] ↪ scan already running folder=%s", self.source_dir.resolve())
                 return dict(self._status)
             self._status.update(
                 {
@@ -93,6 +101,7 @@ class FolderSyncService:
                     "error": None,
                 }
             )
+        logger.info("[SYNC] 📂 started folder=%s", self.source_dir.resolve())
 
         try:
             result = self._sync_files()
@@ -101,7 +110,24 @@ class FolderSyncService:
                 self._status.update(
                     {"status": "completed", "last_sync_at": datetime.now(timezone.utc).isoformat()}
                 )
+            logger.info(
+                "[SYNC] ✅ scan complete discovered=%d extracted=%d unchanged=%d removed=%d "
+                "failed=%d queued=%d rebuild_queued=%s elapsed_ms=%.1f",
+                result["discovered"],
+                result["indexed"],
+                result["unchanged"],
+                result["removed"],
+                result["failed"],
+                result["queued"],
+                result["rebuild_queued"],
+                (time.perf_counter() - started_at) * 1000,
+            )
         except Exception as error:  # keep the API responsive after a bad source file
+            logger.exception(
+                "[SYNC] ❌ scan failed folder=%s elapsed_ms=%.1f",
+                self.source_dir.resolve(),
+                (time.perf_counter() - started_at) * 1000,
+            )
             with self._lock:
                 self._status.update(
                     {"status": "failed", "error": str(error), "last_sync_at": datetime.now(timezone.utc).isoformat()}
@@ -114,6 +140,7 @@ class FolderSyncService:
             path.relative_to(self.source_dir).as_posix(): path
             for path in self._iter_source_files()
         }
+        logger.info("[SYNC] 🔎 discovered files=%d folder=%s", len(files), self.source_dir.resolve())
         counts = {
             "discovered": len(files),
             "indexed": 0,
@@ -125,13 +152,21 @@ class FolderSyncService:
             "failures": [],
             "warnings": [manifest_warning] if manifest_warning else [],
         }
+        if manifest_warning:
+            logger.warning("[SYNC] ⚠️ %s", manifest_warning)
         next_manifest: dict[str, dict] = {}
         incremental_document_ids: set[str] = set()
         rebuild_document_ids: set[str] = set()
         requires_rebuild = False
 
-        for relative_path, path in sorted(files.items()):
+        for position, (relative_path, path) in enumerate(sorted(files.items()), start=1):
             previous = manifest.get(relative_path, {})
+            logger.info(
+                "[SYNC] 📄 %d/%d checking file=%s",
+                position,
+                len(files),
+                relative_path,
+            )
             try:
                 content = self._read_stable(path)
             except IngestionError as error:
@@ -141,8 +176,9 @@ class FolderSyncService:
                 )
                 if previous:
                     next_manifest[relative_path] = previous
-                print(f"[FolderSync] Failed to read {relative_path}: {error}")
+                logger.error("[SYNC] ❌ read failed file=%s error=%s", relative_path, error.message)
                 continue
+            logger.info("[SYNC] 📥 read file=%s size_bytes=%d", relative_path, len(content))
             digest = hashlib.sha256(content).hexdigest()
             document = self.metadata_store.get_document(previous.get("doc_id", "")) if previous else None
             if (
@@ -153,10 +189,20 @@ class FolderSyncService:
                 if document.status == DocumentStatus.INDEXED or not self.queue_document:
                     counts["unchanged"] += 1
                     next_manifest[relative_path] = previous
+                    logger.info(
+                        "[SYNC] ↪ unchanged file=%s status=%s",
+                        relative_path,
+                        document.status.value,
+                    )
                     continue
                 incremental_document_ids.add(document.id)
                 counts["unchanged"] += 1
                 next_manifest[relative_path] = previous
+                logger.info(
+                    "[SYNC] ⏳ unchanged but indexing needed file=%s document_id=%s",
+                    relative_path,
+                    document.id,
+                )
                 continue
 
             managed = bool(previous.get("managed", True)) if previous else False
@@ -200,6 +246,14 @@ class FolderSyncService:
                     rebuild_document_ids.add(result.document.id)
                 elif result.document.status != DocumentStatus.INDEXED:
                     incremental_document_ids.add(result.document.id)
+                logger.info(
+                    "[SYNC] ✅ extracted file=%s document_id=%s chunks=%d pages=%d status=%s",
+                    relative_path,
+                    result.document.id,
+                    result.document.chunk_count,
+                    result.document.total_pages,
+                    result.document.status.value,
+                )
             except Exception as error:
                 counts["failed"] += 1
                 counts.setdefault("failures", []).append(
@@ -207,7 +261,7 @@ class FolderSyncService:
                 )
                 if previous:
                     next_manifest[relative_path] = previous
-                print(f"[FolderSync] Failed to process {relative_path}: {error}")
+                logger.exception("[SYNC] ❌ processing failed file=%s", relative_path)
 
         for relative_path, previous in manifest.items():
             if relative_path in files:
@@ -216,8 +270,10 @@ class FolderSyncService:
             if previous.get("managed", True) and document_id and self.ingestion_service.delete(document_id):
                 counts["removed"] += 1
                 requires_rebuild = True
+                logger.info("[SYNC] 🗑️ removed missing source file=%s document_id=%s", relative_path, document_id)
             elif not previous.get("managed", True):
                 counts["removed"] += 1
+                logger.info("[SYNC] 🗑️ removed source mapping file=%s", relative_path)
 
         if requires_rebuild:
             # One atomic rebuild is enough for every changed, removed, and newly
@@ -226,10 +282,16 @@ class FolderSyncService:
             if self.queue_rebuild and self.queue_rebuild(sorted(rebuild_document_ids)):
                 counts["queued"] = len(rebuild_document_ids)
                 counts["rebuild_queued"] = True
+                logger.info(
+                    "[SYNC] ⏳ queued full rebuild affected_documents=%d",
+                    len(rebuild_document_ids),
+                )
         elif self.queue_document:
             for document_id in sorted(incremental_document_ids):
                 if self.queue_document(document_id, False):
                     counts["queued"] += 1
+            if counts["queued"]:
+                logger.info("[SYNC] ⏳ queued incremental documents=%d", counts["queued"])
 
         self._save_manifest(next_manifest)
         return counts

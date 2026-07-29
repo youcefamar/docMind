@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from models.contracts import DocumentStatus
@@ -17,7 +18,8 @@ def make_sync(tmp_path: Path) -> tuple[FolderSyncService, Path]:
     return FolderSyncService(source_dir, service), source_dir
 
 
-def test_sync_indexes_new_file_and_is_idempotent(tmp_path: Path):
+def test_sync_indexes_new_file_and_is_idempotent(tmp_path: Path, caplog):
+    caplog.set_level(logging.INFO, logger="docmind.folder_sync")
     sync, source_dir = make_sync(tmp_path)
     (source_dir / "policy.md").write_text("Remote work is allowed.", encoding="utf-8")
 
@@ -29,6 +31,8 @@ def test_sync_indexes_new_file_and_is_idempotent(tmp_path: Path):
     assert second["unchanged"] == 1
     assert len(sync.metadata_store.list_documents()) == 1
     assert sync.metadata_store.list_documents()[0].status is DocumentStatus.PARTIALLY_INDEXED
+    assert any("[SYNC] 📂 started" in message for message in caplog.messages)
+    assert any("[SYNC] ✅ scan complete" in message for message in caplog.messages)
 
 
 def test_sync_replaces_changed_file_and_removes_deleted_file(tmp_path: Path):

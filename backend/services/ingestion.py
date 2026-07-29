@@ -121,7 +121,7 @@ class DocumentIngestionService:
         started_at = time.perf_counter()
         stage = "validation"
         logger.info(
-            "[UPLOAD] start file=%s size_bytes=%d category=%s embedding_enabled=%s",
+            "[UPLOAD] start 📤 file=%s size_bytes=%d category=%s embedding_enabled=%s",
             filename or "<missing>",
             len(content),
             category or settings.default_category,
@@ -131,7 +131,7 @@ class DocumentIngestionService:
             self.validate_upload(filename, content, content_type)
         except IngestionError as error:
             logger.warning(
-                "[UPLOAD] rejected file=%s stage=%s code=%s elapsed_ms=%.1f",
+                "[UPLOAD] rejected ❌ file=%s stage=%s code=%s elapsed_ms=%.1f",
                 filename or "<missing>",
                 stage,
                 error.code,
@@ -144,7 +144,7 @@ class DocumentIngestionService:
 
         if existing_hash and not replace:
             logger.info(
-                "[UPLOAD] duplicate file=%s document_id=%s elapsed_ms=%.1f",
+                "[UPLOAD] duplicate ↪ file=%s document_id=%s elapsed_ms=%.1f",
                 filename,
                 existing_hash.id,
                 (time.perf_counter() - started_at) * 1000,
@@ -203,7 +203,7 @@ class DocumentIngestionService:
 
             stage = "extraction"
             extraction_started_at = time.perf_counter()
-            logger.info("[UPLOAD] extraction start file=%s", filename)
+            logger.info("[UPLOAD] extraction start 🔎 file=%s", filename)
             raw_chunks = self.processor.extract_chunks(
                 file_bytes=content,
                 filename=filename,
@@ -214,7 +214,7 @@ class DocumentIngestionService:
                 raise IngestionError("extraction_empty", "No readable text was found in the document.")
             total_pages = max(int(chunk.get("total_pages", 1)) for chunk in raw_chunks)
             logger.info(
-                "[UPLOAD] extraction complete file=%s chunks=%d pages=%d elapsed_ms=%.1f",
+                "[UPLOAD] extraction complete ✅ file=%s chunks=%d pages=%d elapsed_ms=%.1f",
                 filename,
                 len(raw_chunks),
                 total_pages,
@@ -256,13 +256,13 @@ class DocumentIngestionService:
                 stage = "embedding_indexing"
                 indexing_started_at = time.perf_counter()
                 logger.info(
-                    "[UPLOAD] embedding/indexing start file=%s chunks=%d",
+                    "[UPLOAD] embedding/indexing start 🧠 file=%s chunks=%d",
                     filename,
                     len(raw_chunks),
                 )
                 index_result = indexer(raw_chunks)
                 logger.info(
-                    "[UPLOAD] embedding/indexing complete file=%s result=%s elapsed_ms=%.1f",
+                    "[UPLOAD] embedding/indexing complete ✅ file=%s result=%s elapsed_ms=%.1f",
                     filename,
                     index_result,
                     (time.perf_counter() - indexing_started_at) * 1000,
@@ -283,7 +283,7 @@ class DocumentIngestionService:
             self.metadata_store.save_document(document)
             self.metadata_store.save_job(job, document.updated_at.isoformat(), document.updated_at.isoformat())
             logger.info(
-                "[UPLOAD] complete file=%s document_id=%s status=%s chunks=%d elapsed_ms=%.1f",
+                "[UPLOAD] complete ✅ file=%s document_id=%s status=%s chunks=%d elapsed_ms=%.1f",
                 filename,
                 document.id,
                 document.status.value,
@@ -297,7 +297,7 @@ class DocumentIngestionService:
             )
         except IngestionError as error:
             logger.error(
-                "[UPLOAD] failed file=%s stage=%s code=%s elapsed_ms=%.1f",
+                "[UPLOAD] failed ❌ file=%s stage=%s code=%s elapsed_ms=%.1f",
                 filename,
                 stage,
                 error.code,
@@ -306,7 +306,7 @@ class DocumentIngestionService:
             return self._mark_failed(document, job, error.message, error.code)
         except Exception as error:
             logger.exception(
-                "[UPLOAD] failed file=%s stage=%s elapsed_ms=%.1f",
+                "[UPLOAD] failed ❌ file=%s stage=%s elapsed_ms=%.1f",
                 filename,
                 stage,
                 (time.perf_counter() - started_at) * 1000,
@@ -347,7 +347,7 @@ class DocumentIngestionService:
         self.metadata_store.save_document(document)
         self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
         logger.info(
-            "[UPLOAD] queued for background embedding/indexing file=%s document_id=%s chunks=%d",
+            "[UPLOAD] queued for background embedding/indexing ⏳ file=%s document_id=%s chunks=%d",
             document.filename,
             document.id,
             document.chunk_count,
@@ -417,7 +417,7 @@ class DocumentIngestionService:
         self.metadata_store.save_document(document)
         self.metadata_store.save_job(job, now.isoformat(), now.isoformat())
         logger.info(
-            "[UPLOAD] background embedding/indexing start file=%s document_id=%s chunks=%d",
+            "[UPLOAD] background embedding/indexing start 🧠 file=%s document_id=%s chunks=%d",
             document.filename,
             document.id,
             document.chunk_count,
@@ -435,7 +435,7 @@ class DocumentIngestionService:
             self.metadata_store.save_document(document)
             self.metadata_store.save_job(job, document.updated_at.isoformat(), document.updated_at.isoformat())
             logger.info(
-                "[UPLOAD] background embedding/indexing complete file=%s document_id=%s status=%s elapsed_ms=%.1f",
+                "[UPLOAD] background embedding/indexing complete ✅ file=%s document_id=%s status=%s elapsed_ms=%.1f",
                 document.filename,
                 document.id,
                 document.status.value,
@@ -444,7 +444,7 @@ class DocumentIngestionService:
             return IngestionResult(document=document, job=job)
         except Exception as error:
             logger.exception(
-                "[UPLOAD] background embedding/indexing failed file=%s document_id=%s elapsed_ms=%.1f",
+                "[UPLOAD] background embedding/indexing failed ❌ file=%s document_id=%s elapsed_ms=%.1f",
                 document.filename,
                 document.id,
                 (time.perf_counter() - started_at) * 1000,

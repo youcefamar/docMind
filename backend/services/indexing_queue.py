@@ -50,9 +50,15 @@ class BackgroundIndexQueue:
         task = IndexTask(document_id=document_id, force_rebuild=force_rebuild)
         with self._lock:
             if any(item.document_id == document_id for item in self._pending):
+                logger.info(
+                    "[INDEX_QUEUE] ↪ already queued file=%s document_id=%s",
+                    self._document_label(document_id),
+                    document_id,
+                )
                 return False
             self._pending.add(task)
             self._last_error = None
+            queue_depth = len(self._pending)
         try:
             self.ingestion_service.mark_indexing_queued(document_id)
         except Exception:
@@ -60,7 +66,13 @@ class BackgroundIndexQueue:
                 self._pending.discard(task)
             raise
         self._tasks.put(task)
-        logger.info("[INDEX_QUEUE] queued document=%s force_rebuild=%s", document_id, force_rebuild)
+        logger.info(
+            "[INDEX_QUEUE] 📥 queued file=%s document_id=%s mode=%s queue_depth=%d",
+            self._document_label(document_id),
+            document_id,
+            "full-rebuild" if force_rebuild else "incremental",
+            queue_depth,
+        )
         return True
 
     def enqueue_rebuild(self, document_ids: Iterable[str] = ()) -> bool:
@@ -85,10 +97,14 @@ class BackgroundIndexQueue:
         for document_id in newly_tracked_ids:
             self.ingestion_service.mark_indexing_queued(document_id)
         if already_scheduled:
+            logger.info(
+                "[INDEX_QUEUE] ↪ full rebuild already scheduled affected_documents=%d",
+                len(requested_ids),
+            )
             return False
         self._tasks.put(task)
         logger.info(
-            "[INDEX_QUEUE] queued full catalog rebuild affected_documents=%d",
+            "[INDEX_QUEUE] 📥 queued full catalog rebuild affected_documents=%d",
             len(requested_ids),
         )
         return True
@@ -118,16 +134,26 @@ class BackgroundIndexQueue:
     def _run(self) -> None:
         while True:
             task = self._tasks.get()
+            started_at = time.perf_counter()
             catalog_document_ids: set[str] = set()
             with self._lock:
                 self._active = task
                 if task.document_id is None:
                     catalog_document_ids = set(self._catalog_document_ids)
                     self._catalog_document_ids.clear()
+                pending_count = len(self._pending)
+            document_label = self._document_label(task.document_id)
+            logger.info(
+                "[INDEX_QUEUE] 🚀 started file=%s document_id=%s mode=%s pending=%d",
+                document_label,
+                task.document_id or "<catalog>",
+                "full-rebuild" if task.force_rebuild else "incremental",
+                pending_count,
+            )
             try:
                 if task.document_id is None:
                     index_result = self.indexer("<catalog-rebuild>", force_rebuild=True)
-                    self.ingestion_service.complete_catalog_indexing(
+                    completed_documents = self.ingestion_service.complete_catalog_indexing(
                         catalog_document_ids,
                         indexed=bool(index_result),
                     )
@@ -141,13 +167,25 @@ class BackgroundIndexQueue:
                     )
                 with self._lock:
                     self._last_completed_at = datetime.now(timezone.utc).isoformat()
-                logger.info("[INDEX_QUEUE] completed document=%s", task.document_id or "<catalog>")
+                logger.info(
+                    "[INDEX_QUEUE] ✅ completed file=%s document_id=%s finalized_documents=%d elapsed_ms=%.1f",
+                    document_label,
+                    task.document_id or "<catalog>",
+                    completed_documents if task.document_id is None else 1,
+                    (time.perf_counter() - started_at) * 1000,
+                )
             except Exception as error:
                 with self._lock:
                     self._last_error = str(error)
-                logger.exception("[INDEX_QUEUE] failed document=%s", task.document_id or "<catalog>")
+                logger.exception(
+                    "[INDEX_QUEUE] ❌ failed file=%s document_id=%s elapsed_ms=%.1f",
+                    document_label,
+                    task.document_id or "<catalog>",
+                    (time.perf_counter() - started_at) * 1000,
+                )
             finally:
                 followup_task: Optional[IndexTask] = None
+                all_work_completed = False
                 with self._lock:
                     self._pending.discard(task)
                     self._active = None
@@ -157,7 +195,16 @@ class BackgroundIndexQueue:
                         followup_task = IndexTask(document_id=None, force_rebuild=True)
                         self._pending.add(followup_task)
                         self._catalog_rebuild_followup_requested = False
+                    all_work_completed = not self._pending and self._active is None
                 if followup_task:
                     self._tasks.put(followup_task)
-                    logger.info("[INDEX_QUEUE] queued follow-up full catalog rebuild")
+                    logger.info("[INDEX_QUEUE] ⏳ queued follow-up full catalog rebuild")
+                elif all_work_completed:
+                    logger.info("[INDEX_QUEUE] 🎉 all queued indexing work is finished")
                 self._tasks.task_done()
+
+    def _document_label(self, document_id: Optional[str]) -> str:
+        if document_id is None:
+            return "<catalog rebuild>"
+        document = self.ingestion_service.metadata_store.get_document(document_id)
+        return document.filename if document else "<document no longer exists>"

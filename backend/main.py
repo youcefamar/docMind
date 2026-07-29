@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from services.logging_filters import configure_uvicorn_access_logs
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +13,7 @@ logging.basicConfig(
     level=os.getenv("DOCMIND_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
+configure_uvicorn_access_logs()
 
 from routes.chat import router as chat_router  # noqa: E402
 from routes.config import router as config_router  # noqa: E402

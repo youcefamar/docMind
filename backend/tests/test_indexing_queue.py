@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from models.contracts import DocumentStatus
@@ -6,7 +7,8 @@ from services.ingestion import DocumentIngestionService
 from services.metadata_store import MetadataStore
 
 
-def test_background_queue_indexes_extracted_document_without_reextraction(tmp_path: Path):
+def test_background_queue_indexes_extracted_document_without_reextraction(tmp_path: Path, caplog):
+    caplog.set_level(logging.INFO, logger="docmind.index_queue")
     service = DocumentIngestionService(
         tmp_path / "data",
         metadata_store=MetadataStore(tmp_path / "data" / "metadata.sqlite"),
@@ -24,6 +26,8 @@ def test_background_queue_indexes_extracted_document_without_reextraction(tmp_pa
     assert queue.wait_for_idle(timeout=2) is True
     assert indexed_ids == [f"{result.document.id}:False"]
     assert service.metadata_store.get_document(result.document.id).status is DocumentStatus.INDEXED
+    assert any("[INDEX_QUEUE] 📥 queued" in message for message in caplog.messages)
+    assert any("[INDEX_QUEUE] 🎉 all queued indexing work is finished" in message for message in caplog.messages)
 
 
 def test_catalog_rebuild_marks_only_affected_documents_indexed(tmp_path: Path):

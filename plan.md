@@ -519,6 +519,19 @@ long CPU measurement or interrupted rebuild from taking the chatbot offline.
 - [x] preserve document statuses and report queued work accurately after sync completion;
 - [x] reject a stale source-folder manifest before it can remove documents from a different source root.
 
+#### P6.4.1 — indexing observability — implemented
+
+- [x] print readable terminal progress for folder scans, extraction, queueing, embeddings, and index completion;
+- [x] print one unambiguous terminal message when all queued indexing work is finished;
+- [x] suppress only successful frontend polling access logs, while retaining request errors and meaningful API activity.
+
+#### P6.5 — source-of-truth catalog migration — in progress
+
+- [ ] create a recoverable backup before removing stale catalog records;
+- [ ] retain only documents currently tracked by the managed knowledge-folder manifest;
+- [ ] rebuild local indexes from the retained source-of-truth catalog;
+- [ ] verify the Knowledge Base lists only the managed source files.
+
 Run the integrated application on the target laptop and measure components separately:
 
 - model download and disk size;

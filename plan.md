@@ -494,6 +494,13 @@ persistent manifest, and status counts exposed at `GET /api/sources/status`.
 This keeps shared offline-folder operation reliable without introducing a
 platform-specific file watcher.
 
+#### P5.1 — local chat-session continuity — implemented
+
+- [x] preserve messages and selected retrieval options when the Chat page unmounts during navigation;
+- [x] restore only valid, versioned local browser data without exposing it to a server;
+- [x] keep the clear-chat action consistent with stored session state;
+- [x] validate the frontend production build and live `/api/ask` behavior.
+
 ### P6 — local deployment profiling
 
 Status: profiling harness implemented in `backend/scripts/profile_local.py`;

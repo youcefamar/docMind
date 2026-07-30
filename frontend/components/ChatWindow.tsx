@@ -35,15 +35,56 @@ interface RuntimeStatus {
   llm_model: string;
 }
 
+const CHAT_SESSION_STORAGE_KEY = 'docmind.chat-session.v1';
+const MAX_STORED_MESSAGES = 100;
+
+function createWelcomeMessage(content = 'Hello! I am **DocMind**, your internal AI knowledge assistant. Ask me anything about company policies, technical docs, or finance guidelines and I will provide exact answers with source citations.'): Message {
+  return {
+    id: 'welcome-1',
+    sender: 'bot',
+    content,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+}
+
+function isStoredMessage(value: unknown): value is Message {
+  if (!value || typeof value !== 'object') return false;
+  const message = value as Record<string, unknown>;
+  return (
+    typeof message.id === 'string'
+    && (message.sender === 'user' || message.sender === 'bot')
+    && typeof message.content === 'string'
+    && typeof message.timestamp === 'string'
+  );
+}
+
+function restoreChatSession(): {
+  messages: Message[];
+  selectedProfile: string;
+  selectedCategory: string;
+} | null {
+  try {
+    const raw = window.localStorage.getItem(CHAT_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const session = parsed as Record<string, unknown>;
+    if (session.version !== 1 || !Array.isArray(session.messages)) return null;
+
+    const messages = session.messages.filter(isStoredMessage).slice(-MAX_STORED_MESSAGES);
+    return {
+      messages: messages.length > 0 ? messages : [createWelcomeMessage()],
+      selectedProfile: typeof session.selectedProfile === 'string' ? session.selectedProfile : 'fast',
+      selectedCategory: typeof session.selectedCategory === 'string' ? session.selectedCategory : 'All',
+    };
+  } catch (error) {
+    console.warn('Unable to restore the local DocMind chat session:', error);
+    return null;
+  }
+}
+
 export default function ChatWindow() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-1',
-      sender: 'bot',
-      content: 'Hello! I am **DocMind**, your internal AI knowledge assistant. Ask me anything about company policies, technical docs, or finance guidelines and I will provide exact answers with source citations.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => [createWelcomeMessage()]);
 
   const [input, setInput] = useState('');
   const [categories, setCategories] = useState<string[]>(['All']);
@@ -53,6 +94,7 @@ export default function ChatWindow() {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isLoading, setIsLoading] = useState(false);
+  const [isChatSessionRestored, setIsChatSessionRestored] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -64,14 +106,46 @@ export default function ChatWindow() {
   }, [messages, isLoading]);
 
   useEffect(() => {
+    const savedSession = restoreChatSession();
+    if (savedSession) {
+      setMessages(savedSession.messages);
+      setSelectedProfile(savedSession.selectedProfile);
+      setSelectedCategory(savedSession.selectedCategory);
+    }
+    setIsChatSessionRestored(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isChatSessionRestored) return;
+    try {
+      window.localStorage.setItem(
+        CHAT_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          messages: messages.slice(-MAX_STORED_MESSAGES),
+          selectedProfile,
+          selectedCategory,
+        }),
+      );
+    } catch (error) {
+      console.warn('Unable to save the local DocMind chat session:', error);
+    }
+  }, [isChatSessionRestored, messages, selectedCategory, selectedProfile]);
+
+  useEffect(() => {
     fetch('/api/backend/config/')
       .then((res) => (res.ok ? res.json() : null))
       .then((config) => {
         if (!config) return;
-        setCategories(config.category_filter_options || ['All']);
+        const categoryOptions = config.category_filter_options || ['All'];
+        const profileOptions = config.retrieval_profiles || ['fast'];
+        setCategories(categoryOptions);
         setSuggestedPrompts(config.suggested_prompts || []);
-        setRetrievalProfiles(config.retrieval_profiles || ['fast']);
-        setSelectedCategory((current) => current || config.default_category || 'All');
+        setRetrievalProfiles(profileOptions);
+        setSelectedCategory((current) => (
+          categoryOptions.includes(current) ? current : config.default_category || 'All'
+        ));
+        setSelectedProfile((current) => (profileOptions.includes(current) ? current : 'fast'));
       })
       .catch((err) => console.error('Failed to fetch backend configuration:', err));
 
@@ -151,7 +225,7 @@ export default function ChatWindow() {
       const errorMsg: Message = {
         id: `err_${Date.now()}`,
         sender: 'bot',
-        content: `⚠️ Unable to retrieve an answer right now. Please verify the backend FastAPI server is running. (${err.message})`,
+        content: `⚠️ The question could not be completed. Check the backend terminal for an [ASK] failed message. (${err.message})`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -161,14 +235,12 @@ export default function ChatWindow() {
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: 'welcome-1',
-        sender: 'bot',
-        content: 'Session cleared. Ask a new question to query the knowledge base!',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      }
-    ]);
+    try {
+      window.localStorage.removeItem(CHAT_SESSION_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Unable to clear the local DocMind chat session:', error);
+    }
+    setMessages([createWelcomeMessage('Session cleared. Ask a new question to query the knowledge base!')]);
   };
 
   return (

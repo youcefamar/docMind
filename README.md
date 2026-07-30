@@ -139,6 +139,12 @@ npm run dev
 ```
 Open `http://localhost:3000` in your browser.
 
+The Chat screen saves the current conversation, selected category, and retrieval
+profile in versioned browser local storage on that same machine. Moving between
+Chat and Knowledge Base—or refreshing the page—restores the conversation
+without sending it anywhere. **Clear Chat** removes the previous stored
+conversation.
+
 ---
 
 ## 🐳 Docker Deployment (One-Command)

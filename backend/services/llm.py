@@ -10,6 +10,7 @@ the API and ingestion flows usable during development.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -31,11 +32,39 @@ MODEL_PATH_ENV = "DOCMIND_LLM_MODEL_PATH"
 LEGACY_MODEL_PATH_ENV = "GGUF_MODEL_PATH"
 DEFAULT_REFUSAL = "I don't know based on the provided documents."
 _CITATION_PATTERN = re.compile(r"\[S(\d+)\]", re.IGNORECASE)
+_GROUPED_CITATION_PATTERN = re.compile(
+    r"\[((?:S[1-9][0-9]*)(?:\s*,\s*S[1-9][0-9]*)+)\]",
+    re.IGNORECASE,
+)
 _WORD_PATTERN = re.compile(r"[\w']+", re.UNICODE)
+_THINK_BLOCK_PATTERN = re.compile(r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL)
+_UNCLOSED_THINK_PATTERN = re.compile(r"<think\b[^>]*>.*\Z", re.IGNORECASE | re.DOTALL)
+_THINK_TAG_PATTERN = re.compile(r"</?think\b[^>]*>", re.IGNORECASE)
+
+logger = logging.getLogger("docmind.llm")
 
 
 def _source_tokens(text: str) -> set[str]:
     return {token.casefold() for token in _WORD_PATTERN.findall(text or "")}
+
+
+def _float_environment(name: str, default: float) -> float:
+    """Read a non-negative local threshold without making a bad .env fatal."""
+
+    try:
+        return max(0.0, float(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+def normalize_citation_labels(answer: str) -> str:
+    """Expand grouped source labels into the API's individual citation format."""
+
+    def replace(match: re.Match[str]) -> str:
+        labels = (label.strip().upper() for label in match.group(1).split(","))
+        return " ".join(f"[{label}]" for label in labels)
+
+    return _GROUPED_CITATION_PATTERN.sub(replace, answer or "")
 
 
 def validate_citations(answer: str, sources: List[Dict[str, Any]]) -> List[Citation]:
@@ -48,7 +77,7 @@ def validate_citations(answer: str, sources: List[Dict[str, Any]]) -> List[Citat
 
     citations: List[Citation] = []
     seen: set[str] = set()
-    for match in _CITATION_PATTERN.finditer(answer or ""):
+    for match in _CITATION_PATTERN.finditer(normalize_citation_labels(answer)):
         source_index = int(match.group(1))
         if source_index < 1 or source_index > len(sources):
             continue
@@ -80,8 +109,23 @@ def sanitize_citation_labels(answer: str, source_count: int) -> str:
         index = int(match.group(1))
         return f"[S{index}]" if 1 <= index <= source_count else ""
 
-    sanitized = _CITATION_PATTERN.sub(replace, answer or "")
+    sanitized = _CITATION_PATTERN.sub(replace, normalize_citation_labels(answer))
     return re.sub(r"[ \t]{2,}", " ", sanitized)
+
+
+def strip_thinking_content(answer: str) -> str:
+    """Remove local-model reasoning blocks before returning a user answer.
+
+    Some Qwen GGUF chat templates still emit ``<think>`` despite an instruction
+    not to. This response boundary protects every client, including direct API
+    consumers. An unfinished block is discarded too, because it has no
+    user-facing answer after it.
+    """
+
+    cleaned = _THINK_BLOCK_PATTERN.sub("", answer or "")
+    cleaned = _UNCLOSED_THINK_PATTERN.sub("", cleaned)
+    cleaned = _THINK_TAG_PATTERN.sub("", cleaned)
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
 
 
 def citation_is_supported(answer: str, citation: Citation) -> bool:
@@ -168,6 +212,7 @@ class LLMService:
         question: str,
         sources: List[Dict[str, Any]],
         chat_history: Optional[List[Dict[str, str]]] = None,
+        retrieval_profile: str = "fast",
     ) -> Tuple[str, float, str]:
         generation_started_at = time.perf_counter()
         self.last_generation_stats = {
@@ -178,8 +223,9 @@ class LLMService:
         if not sources:
             return DEFAULT_REFUSAL, 0.0, "Low"
 
+        profile = retrieval_profile.casefold()
         max_similarity = max((float(s.get("similarity", 0.0)) for s in sources), default=0.0)
-        min_score = float(os.getenv("DOCMIND_MIN_SOURCE_SCORE", "0.20"))
+        min_score, medium_score, high_score = self._score_thresholds(profile)
         if max_similarity < min_score:
             return DEFAULT_REFUSAL, round(max_similarity, 2), "Low"
 
@@ -210,7 +256,12 @@ class LLMService:
         else:
             answer = self._generate_fallback_answer(sources)
 
-        if self._is_refusal(answer):
+        raw_answer = answer
+        answer = strip_thinking_content(answer)
+        if answer != raw_answer:
+            logger.info("[LLM] removed hidden think content from local model output")
+
+        if not answer or self._is_refusal(answer):
             return DEFAULT_REFUSAL, 0.15, "Low"
 
         answer = sanitize_citation_labels(answer, len(sources)).strip()
@@ -221,7 +272,10 @@ class LLMService:
             citations = validate_citations(answer, sources)
 
         confidence_score, confidence_label = self._calculate_confidence(
-            answer, max_similarity
+            answer,
+            max_similarity,
+            medium_score=medium_score,
+            high_score=high_score,
         )
         return answer, confidence_score, confidence_label
 
@@ -246,6 +300,7 @@ class LLMService:
             f"If the context is insufficient, answer exactly: {DEFAULT_REFUSAL}\n"
             "Answer in the same language as the user when possible. Keep it concise.\n"
             "Cite every factual claim with one or more supplied labels such as [S1]. "
+            "Use separate labels for multiple sources, for example [S1] [S2]. "
             "Never create a label that is not supplied. Do not expose private reasoning. "
             "Use non-thinking mode: /no_think."
         )
@@ -278,14 +333,43 @@ class LLMService:
         )
 
     @staticmethod
-    def _calculate_confidence(answer: str, max_sim: float) -> Tuple[float, str]:
+    def _calculate_confidence(
+        answer: str,
+        max_sim: float,
+        *,
+        medium_score: float = 0.45,
+        high_score: float = 0.70,
+    ) -> Tuple[float, str]:
         if LLMService._is_refusal(answer):
             return 0.15, "Low"
-        if max_sim >= 0.70:
+        if max_sim >= high_score:
             return min(0.98, round(max_sim + 0.05, 2)), "High"
-        if max_sim >= 0.45:
+        if max_sim >= medium_score:
             return round(max_sim, 2), "Medium"
         return round(max_sim, 2), "Low"
+
+    @staticmethod
+    def _score_thresholds(retrieval_profile: str) -> tuple[float, float, float]:
+        """Return profile-specific gates for incomparable retrieval score scales.
+
+        Fast mode exposes dense cosine similarity. Quality mode exposes either
+        reciprocal-rank-fusion scores (typically around 0.016-0.033) or a
+        locally configured reranker score. They must not share Fast mode's
+        0.20 refusal threshold.
+        """
+
+        if retrieval_profile == "quality":
+            minimum = _float_environment("DOCMIND_QUALITY_MIN_SOURCE_SCORE", 0.015)
+            medium = _float_environment("DOCMIND_QUALITY_MEDIUM_SCORE", minimum)
+            high = _float_environment("DOCMIND_QUALITY_HIGH_SCORE", 0.030)
+        else:
+            minimum = _float_environment("DOCMIND_MIN_SOURCE_SCORE", 0.20)
+            medium = _float_environment("DOCMIND_FAST_MEDIUM_SCORE", 0.45)
+            high = _float_environment("DOCMIND_FAST_HIGH_SCORE", 0.70)
+
+        medium = max(minimum, medium)
+        high = max(medium, high)
+        return minimum, medium, high
 
     @staticmethod
     def _generate_fallback_answer(sources: List[Dict[str, Any]]) -> str:

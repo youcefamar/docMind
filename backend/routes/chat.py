@@ -177,6 +177,7 @@ async def ask_question(request: AskRequest):
             question=request.question,
             sources=sources,
             chat_history=request.chat_history,
+            retrieval_profile=request.retrieval_profile.value,
         )
         generation_ms = (time.perf_counter() - generation_started_at) * 1000
         citations = [

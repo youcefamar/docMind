@@ -202,7 +202,8 @@ def test_ask_uses_fast_dense_results_when_available(monkeypatch):
             ]
 
     class FakeLLM:
-        def generate_answer(self, question, sources, chat_history=None):
+        def generate_answer(self, question, sources, chat_history=None, retrieval_profile="fast"):
+            assert retrieval_profile == "fast"
             return "Remote work is allowed. [S1]", 0.91, "High"
 
     monkeypatch.setattr(chat_route, "dense_index", FakeDense())
@@ -259,7 +260,8 @@ def test_ask_uses_quality_retriever_when_available(monkeypatch):
             ]
 
     class FakeLLM:
-        def generate_answer(self, question, sources, chat_history=None):
+        def generate_answer(self, question, sources, chat_history=None, retrieval_profile="fast"):
+            assert retrieval_profile == "quality"
             return "Quality evidence. [S1]", 0.88, "High"
 
     monkeypatch.setattr(chat_route, "quality_retriever", FakeQuality())

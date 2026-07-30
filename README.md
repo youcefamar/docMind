@@ -172,6 +172,15 @@ RRF and optional local BGE reranking). The response includes `sources` and
 validated `citations` such as `[S1]`. If evidence is missing, the local runtime
 returns `I don't know based on the provided documents.`
 
+Fast cosine scores and Quality RRF scores use different numeric scales. Keep
+their refusal and confidence gates separate through `DOCMIND_MIN_SOURCE_SCORE`,
+`DOCMIND_FAST_MEDIUM_SCORE`, `DOCMIND_FAST_HIGH_SCORE`,
+`DOCMIND_QUALITY_MIN_SOURCE_SCORE`, `DOCMIND_QUALITY_MEDIUM_SCORE`, and
+`DOCMIND_QUALITY_HIGH_SCORE`. The defaults in `.env.example` are calibrated for
+the current local profiles; adjust the Quality values if you install a reranker
+whose score scale differs. Grouped model citations such as `[S1, S2]` are
+normalized into separate validated citations before the response is returned.
+
 Set `DOCMIND_LLM_MODEL_PATH` to a cached Qwen3-4B instruct GGUF file. No hosted
 LLM or API key is required. Without weights, development uses a deterministic
 extractive fallback; do not use that fallback for measured quality claims.
@@ -179,6 +188,8 @@ extractive fallback; do not use that fallback for measured quality claims.
 The backend logs each question's retrieval profile, source count, citation
 count, model backend, and stage latency in the terminal. Set
 `DOCMIND_LOG_QUERIES=true` only when you also want the question text printed.
+Qwen `<think>...</think>` blocks are removed by the backend before a response
+is returned to the API or rendered in the frontend.
 
 ### 2. Upload Document
 `POST /api/upload` (Form Data)

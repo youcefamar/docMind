@@ -458,6 +458,23 @@ such as categories, supported formats, file limits, chunk defaults, and
 retrieval top-k values are environment-backed and served to the frontend from
 `GET /api/config/`.
 
+#### P4.1 — local model output sanitization — implemented
+
+- [x] remove hidden Qwen `<think>` reasoning blocks before an answer reaches the API or frontend;
+- [x] treat a response containing only hidden reasoning as insufficient evidence;
+- [x] cover complete and interrupted thinking blocks with unit tests.
+
+Restart the local backend after this code change, then verify one response from
+the configured GGUF model. The sanitizer is covered by tests, but this runtime
+check confirms the active local server has reloaded the new code.
+
+#### P4.2 — retrieval-score and grouped-citation correctness — implemented
+
+- [x] apply a configurable score gate calibrated for each retrieval profile;
+- [x] calibrate confidence labels for RRF scores returned by Quality retrieval;
+- [x] normalize grouped model citations such as `[S1, S5]` into individual valid labels;
+- [x] cover both cases with unit and API tests.
+
 ### P5 — API and frontend integration
 
 Status: implemented and covered by backend tests plus the Next.js production build.

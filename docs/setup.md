@@ -82,7 +82,7 @@ as a quoted text string; FastAPI will otherwise return `422 model_attributes_typ
 
 ---
 
-### Step 3: Frontend Setup (Next.js 16 + TypeScript 7)
+### Step 3: Frontend Setup (Next.js 16 + TypeScript 6)
 
 1. Open a new terminal tab and navigate to `frontend/`:
    ```bash

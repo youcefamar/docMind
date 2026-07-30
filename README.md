@@ -14,7 +14,7 @@
 
 | Layer | Tool | Rationale |
 |---|---|---|
-| **Frontend** | Next.js 16 (App Router) + TypeScript 7 + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
+| **Frontend** | Next.js 16 (App Router) + TypeScript 6 + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
 | **Backend** | FastAPI (Python 3.11) | High-performance async API framework for chunking, embedding & retrieval |
 | **LLM Inference** | Local Qwen3-4B target | Offline CPU-compatible generation (P4) |
 | **Embeddings** | Qwen3-Embedding-0.6B target | Frozen multilingual research winner (P2) |

@@ -20,6 +20,34 @@ function Show-Help {
     Write-Host ""
 }
 
+function Wait-ForBackend {
+    param (
+        [int]$TimeoutSeconds = 30
+    )
+
+    $healthUrl = "http://127.0.0.1:8000/health"
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+
+    Write-Host "⏳ Waiting for the backend to become ready..." -ForegroundColor Yellow
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        try {
+            $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -eq 200) {
+                Write-Host "✅ Backend is ready." -ForegroundColor Green
+                return
+            }
+        }
+        catch {
+            # FastAPI may still be importing services or binding port 8000.
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    throw "Backend did not become healthy at $healthUrl within $TimeoutSeconds seconds. Check the backend terminal for startup errors."
+}
+
 switch ($Mode.ToLower()) {
     { $_ -in "setup", "init", "-i" } {
         Write-Host "🛠️ Running First-Timer Setup for DocMind..." -ForegroundColor Green
@@ -56,7 +84,7 @@ switch ($Mode.ToLower()) {
 
         Write-Host "⚡ Starting Local Backend & Frontend..." -ForegroundColor Green
         Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; .\.venv\Scripts\activate; uvicorn main:app --reload --port 8000"
-        Start-Sleep -Seconds 3
+        Wait-ForBackend
         Set-Location frontend
         npm run dev
     }
@@ -68,7 +96,7 @@ switch ($Mode.ToLower()) {
     { $_ -in "all", "-a" } {
         Write-Host "⚡ Starting Local Backend + Frontend..." -ForegroundColor Green
         Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd backend; .\.venv\Scripts\activate; uvicorn main:app --reload --port 8000"
-        Start-Sleep -Seconds 2
+        Wait-ForBackend
         Set-Location frontend
         npm run dev
     }

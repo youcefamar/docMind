@@ -31,7 +31,8 @@
 docmind/
 ├── frontend/                  # Next.js 15 App Router Frontend
 │   ├── app/
-│   │   ├── page.tsx          # Interactive Chat Interface
+│   │   ├── page.tsx          # Workspace Overview Dashboard
+│   │   ├── chat/page.tsx     # Interactive Chat Interface
 │   │   ├── admin/page.tsx    # PDF Upload & Vector Management
 │   │   ├── login/page.tsx    # NextAuth Login Screen
 │   │   ├── layout.tsx        # App Shell Layout
@@ -137,7 +138,8 @@ cd frontend
 npm install
 npm run dev
 ```
-Open `http://localhost:3000` in your browser.
+Open `http://localhost:3000` for the workspace overview. The document chat is
+available at `http://localhost:3000/chat`.
 
 The Chat screen saves the current conversation, selected category, and retrieval
 profile in versioned browser local storage on that same machine. Moving between

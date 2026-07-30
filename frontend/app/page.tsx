@@ -1,10 +1,6 @@
 import React from 'react';
-import ChatWindow from '@/components/ChatWindow';
+import OverviewDashboard from '@/components/OverviewDashboard';
 
 export default function HomePage() {
-  return (
-    <div className="w-full">
-      <ChatWindow />
-    </div>
-  );
+  return <OverviewDashboard />;
 }

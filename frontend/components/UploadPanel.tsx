@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Upload, FileText, Trash2, FolderPlus, CheckCircle2, AlertCircle, RefreshCw, Layers, HardDrive, BookOpen } from 'lucide-react';
 import { getApiErrorMessage, readApiPayload } from '../lib/api';
 
@@ -31,6 +31,13 @@ interface SyncStatus {
   warnings?: string[];
 }
 
+interface PublicConfiguration {
+  categories?: string[];
+  supported_extensions?: string[];
+  max_file_size_mb?: number;
+  default_category?: string;
+}
+
 export default function UploadPanel() {
   const [files, setFiles] = useState<FileList | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
@@ -45,11 +52,11 @@ export default function UploadPanel() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch('/api/backend/config/');
       if (!res.ok) return;
-      const config = await readApiPayload<Record<string, any>>(res);
+      const config = await readApiPayload<PublicConfiguration>(res);
       if (!config) return;
       setCategories(config.categories || []);
       setSupportedExtensions(config.supported_extensions || []);
@@ -58,9 +65,9 @@ export default function UploadPanel() {
     } catch (err) {
       console.error('Failed to fetch backend configuration:', err);
     }
-  };
+  }, []);
 
-  const fetchDocuments = async (): Promise<DocumentSummary[]> => {
+  const fetchDocuments = useCallback(async (): Promise<DocumentSummary[]> => {
     setIsLoadingDocs(true);
     try {
       const res = await fetch('/api/backend/docs');
@@ -78,7 +85,7 @@ export default function UploadPanel() {
       setIsLoadingDocs(false);
     }
     return [];
-  };
+  }, []);
 
   const refreshDocumentsUntilSettled = async () => {
     const latest = await fetchDocuments();
@@ -87,7 +94,7 @@ export default function UploadPanel() {
     }
   };
 
-  const fetchSyncStatus = async (): Promise<SyncStatus | null> => {
+  const fetchSyncStatus = useCallback(async (): Promise<SyncStatus | null> => {
     try {
       const res = await fetch('/api/backend/sources/status');
       if (res.ok) {
@@ -101,13 +108,13 @@ export default function UploadPanel() {
       console.error('Failed to fetch knowledge-folder status:', err);
     }
     return null;
-  };
+  }, []);
 
   useEffect(() => {
     fetchConfig();
     fetchDocuments();
     fetchSyncStatus();
-  }, []);
+  }, [fetchConfig, fetchDocuments, fetchSyncStatus]);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -273,10 +280,10 @@ export default function UploadPanel() {
 
         <form onSubmit={handleUpload} className="space-y-5">
           {/* Category Selector */}
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <fieldset>
+            <legend className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-500">
               Assign Category Tag
-            </label>
+            </legend>
             <div className="flex flex-wrap gap-2">
               {categories.map((cat) => (
                 <button
@@ -293,7 +300,7 @@ export default function UploadPanel() {
                 </button>
               ))}
             </div>
-          </div>
+          </fieldset>
 
           {/* File Input Box */}
           <div className="rounded-2xl border-2 border-dashed border-[#dfe0dc] bg-[#fafaf9] p-8 text-center transition-colors hover:border-slate-400 hover:bg-white">
@@ -324,10 +331,13 @@ export default function UploadPanel() {
             {/* Selected File Names */}
             {files && files.length > 0 && (
               <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-[#e7e7e4] pt-4">
-                {Array.from(files).map((f, i) => (
-                  <span key={i} className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+                {Array.from(files).map((file) => (
+                  <span
+                    key={`${file.name}-${file.lastModified}-${file.size}`}
+                    className="flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600"
+                  >
                     <FileText className="w-3.5 h-3.5" />
-                    {f.name}
+                    {file.name}
                   </span>
                 ))}
               </div>
@@ -406,6 +416,7 @@ export default function UploadPanel() {
 
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={handleSync}
               disabled={isSyncing}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
@@ -422,6 +433,7 @@ export default function UploadPanel() {
               className="rounded-xl border border-[#e3e3e0] bg-[#fafaf9] px-3.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none"
             />
             <button
+              type="button"
               onClick={fetchDocuments}
               className="rounded-xl border border-[#e3e3e0] bg-white p-2 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
               title="Refresh Document List"
@@ -477,6 +489,7 @@ export default function UploadPanel() {
                       <div className="flex justify-end gap-1">
                         {doc.status !== 'indexed' && (
                           <button
+                            type="button"
                             onClick={() => handleReindex(doc.id, doc.filename)}
                             className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-800"
                             title="Re-index document"
@@ -485,6 +498,7 @@ export default function UploadPanel() {
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => handleDelete(doc.id, doc.filename)}
                           className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
                           title="Delete document and local index entries"

@@ -14,7 +14,7 @@
 
 | Layer | Tool | Rationale |
 |---|---|---|
-| **Frontend** | Next.js 15 (App Router) + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
+| **Frontend** | Next.js 16 (App Router) + TypeScript 7 + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
 | **Backend** | FastAPI (Python 3.11) | High-performance async API framework for chunking, embedding & retrieval |
 | **LLM Inference** | Local Qwen3-4B target | Offline CPU-compatible generation (P4) |
 | **Embeddings** | Qwen3-Embedding-0.6B target | Frozen multilingual research winner (P2) |
@@ -29,7 +29,7 @@
 
 ```
 docmind/
-├── frontend/                  # Next.js 15 App Router Frontend
+├── frontend/                  # Next.js 16 App Router Frontend
 │   ├── app/
 │   │   ├── page.tsx          # Workspace Overview Dashboard
 │   │   ├── chat/page.tsx     # Interactive Chat Interface
@@ -90,7 +90,7 @@ docmind/
   - `GET /api/docs`: Catalogs uploaded documents with page and chunk metrics.
   - `DELETE /api/doc/{id}`: Removes document vectors cleanly from vector store.
 
-- [x] **Week 3 — Next.js 15 Frontend & Design System**
+- [x] **Week 3 — Next.js Frontend & Design System**
   - Dark mode glassmorphism theme, glowing indigo highlights, Inter font typography.
   - Interactive multi-turn chat window with category filter pills, clear session action, and instant suggested prompts.
   - Source Cards showing document name, page number, match score percentage, and excerpt quotes.
@@ -132,7 +132,7 @@ uvicorn main:app --reload --port 8000
 ```
 FastAPI Swagger documentation will be available at `http://localhost:8000/docs`.
 
-#### Start Frontend (Next.js 15):
+#### Start Frontend (Next.js 16):
 ```bash
 cd frontend
 npm install

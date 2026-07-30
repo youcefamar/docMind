@@ -22,8 +22,15 @@ interface NavigationItem {
 }
 
 interface StoredChatMessage {
+  id?: string;
   sender?: string;
   content?: string;
+  timestamp?: string;
+}
+
+interface RecentQuestion {
+  id: string;
+  content: string;
 }
 
 const primaryNavigation: NavigationItem[] = [
@@ -85,7 +92,7 @@ function NavigationLink({ item, compact = false }: { item: NavigationItem; compa
 }
 
 function useRecentQuestions() {
-  const [questions, setQuestions] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<RecentQuestion[]>([]);
 
   useEffect(() => {
     try {
@@ -94,8 +101,11 @@ function useRecentQuestions() {
       const session = JSON.parse(raw) as { messages?: StoredChatMessage[] };
       const recent = (session.messages ?? [])
         .filter((message) => message.sender === 'user' && typeof message.content === 'string')
-        .map((message) => message.content?.trim() ?? '')
-        .filter(Boolean)
+        .map((message) => ({
+          id: message.id ?? `${message.timestamp ?? 'recent'}-${message.content}`,
+          content: message.content?.trim() ?? '',
+        }))
+        .filter((question) => Boolean(question.content))
         .slice(-6)
         .reverse();
       setQuestions(recent);
@@ -163,14 +173,14 @@ export default function Navbar() {
             </h2>
             {recentQuestions.length > 0 ? (
               <ul className="space-y-0.5">
-                {recentQuestions.map((question, index) => (
-                  <li key={`${question}-${index}`}>
+                {recentQuestions.map((question) => (
+                  <li key={question.id}>
                     <Link
                       href="/chat"
                       className="block truncate rounded-md px-3 py-1.5 text-[11px] leading-4 text-[#646b72] transition-colors hover:bg-[#f6f7f8] hover:text-[#171a1d]"
-                      title={question}
+                      title={question.content}
                     >
-                      {question}
+                      {question.content}
                     </Link>
                   </li>
                 ))}

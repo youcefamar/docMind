@@ -16,7 +16,7 @@ DocMind is designed as a modular, lightweight Retrieval-Augmented Generation (RA
 sequenceDiagram
     autonumber
     actor Employee as Employee / Admin
-    participant FE as Next.js 15 Frontend
+    participant FE as Next.js 16 Frontend
     participant BE as FastAPI Backend
     participant Emb as SentenceTransformers
     participant DB as Local FAISS + BM25 indexes
@@ -55,7 +55,7 @@ sequenceDiagram
 
 ## 🛠️ Subsystem Responsibilities
 
-### 1. Next.js 15 Frontend Layer
+### 1. Next.js 16 Frontend Layer
 - **App Router (`app/`)**: Provides Server Side Rendering (SSR) and Client component isolation.
 - **Tailwind Design System**: Custom glassmorphic dark theme, glowing indigo visual tokens, and responsive mobile-first views.
 - **NextAuth.js**: Protects workspace routes (`/`, `/admin`) and handles user session state.

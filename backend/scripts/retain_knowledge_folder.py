@@ -11,12 +11,17 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from services.ingestion import DocumentIngestionService
-from services.metadata_store import MetadataStore
+
+def _ensure_backend_import_path() -> None:
+    """Allow direct execution from the documented backend directory."""
+    backend_dir = str(Path(__file__).resolve().parents[1])
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
 
 
 def _load_manifest(manifest_path: Path) -> dict[str, Any]:
@@ -56,6 +61,10 @@ def retain_knowledge_folder_catalog(
     confirm: bool = False,
 ) -> dict[str, Any]:
     """Retain manifest documents only, with an explicit dry-run default."""
+    _ensure_backend_import_path()
+    from services.ingestion import DocumentIngestionService
+    from services.metadata_store import MetadataStore
+
     data_dir = data_dir.resolve()
     manifest_path = (manifest_path or data_dir / "sync_manifest.json").resolve()
     backup_root = (backup_root or data_dir / "backups").resolve()

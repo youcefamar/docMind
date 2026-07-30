@@ -1,9 +1,40 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from scripts.retain_knowledge_folder import retain_knowledge_folder_catalog
 from services.ingestion import DocumentIngestionService
 from services.metadata_store import MetadataStore
+
+
+def test_retain_knowledge_folder_script_runs_directly(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    service = DocumentIngestionService(data_dir, metadata_store=MetadataStore(data_dir / "metadata.sqlite"))
+    retained = service.ingest("policy.md", b"Remote work is allowed.").document
+    (data_dir / "sync_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "source_dir": "C:/knowledge",
+                "files": {"policy.md": {"doc_id": retained.id}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "retain_knowledge_folder.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--data-dir", str(data_dir)],
+        capture_output=True,
+        check=False,
+        cwd=tmp_path,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert '"retained_documents": 1' in result.stdout
+    assert "Dry run only." in result.stdout
 
 
 def test_retain_knowledge_folder_catalog_dry_run_keeps_everything(tmp_path: Path):

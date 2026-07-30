@@ -501,6 +501,17 @@ platform-specific file watcher.
 - [x] keep the clear-chat action consistent with stored session state;
 - [x] validate the frontend production build and live `/api/ask` behavior.
 
+#### P5.2 — resilient chat request path — implemented
+
+- [x] proxy chat requests through a structured frontend error boundary instead of exposing plain-text gateway failures;
+- [x] retry one transient local-backend-unavailable response while FastAPI reloads;
+- [x] bound browser chat history before it reaches the local LLM context window;
+- [x] validate an oversized persisted history, normal live `/api/ask` success, and the frontend production build.
+
+The unavailable-backend branch is a structured `503` response and is covered by
+the route implementation; exercising it live would require intentionally
+stopping the user’s active local backend.
+
 ### P6 — local deployment profiling
 
 Status: profiling harness implemented in `backend/scripts/profile_local.py`;

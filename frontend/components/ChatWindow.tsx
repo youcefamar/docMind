@@ -37,6 +37,9 @@ interface RuntimeStatus {
 
 const CHAT_SESSION_STORAGE_KEY = 'docmind.chat-session.v1';
 const MAX_STORED_MESSAGES = 100;
+const MAX_CHAT_HISTORY_MESSAGES = 8;
+const MAX_CHAT_HISTORY_CHARACTERS = 1800;
+const BACKEND_RETRY_DELAY_MS = 1200;
 
 function createWelcomeMessage(content = 'Hello! I am **DocMind**, your internal AI knowledge assistant. Ask me anything about company policies, technical docs, or finance guidelines and I will provide exact answers with source citations.'): Message {
   return {
@@ -81,6 +84,27 @@ function restoreChatSession(): {
     console.warn('Unable to restore the local DocMind chat session:', error);
     return null;
   }
+}
+
+function buildChatHistory(messages: Message[]) {
+  const recentMessages = messages
+    .filter((message) => message.id !== 'welcome-1')
+    .slice(-MAX_CHAT_HISTORY_MESSAGES);
+  const history: Array<{ sender: Message['sender']; content: string }> = [];
+  let remainingCharacters = MAX_CHAT_HISTORY_CHARACTERS;
+
+  for (const message of [...recentMessages].reverse()) {
+    if (remainingCharacters <= 0) break;
+    const content = message.content.slice(-remainingCharacters);
+    history.unshift({ sender: message.sender, content });
+    remainingCharacters -= content.length;
+  }
+
+  return history;
+}
+
+function waitForBackendReload() {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, BACKEND_RETRY_DELAY_MS));
 }
 
 export default function ChatWindow() {
@@ -178,24 +202,22 @@ export default function ChatWindow() {
     setIsLoading(true);
 
     try {
-      // Format chat history for multi-turn context
-      const formattedHistory = messages
-        .filter((m) => m.id !== 'welcome-1')
-        .map((m) => ({
-          sender: m.sender,
-          content: m.content,
-        }));
-
-      const res = await fetch('/api/backend/ask', {
+      const requestBody = JSON.stringify({
+        question: query,
+        category: selectedCategory,
+        retrieval_profile: selectedProfile,
+        chat_history: buildChatHistory(messages),
+      });
+      const requestAnswer = () => fetch('/api/backend/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: query,
-          category: selectedCategory,
-          retrieval_profile: selectedProfile,
-          chat_history: formattedHistory,
-        }),
+        body: requestBody,
       });
+      let res = await requestAnswer();
+      if (res.status === 503) {
+        await waitForBackendReload();
+        res = await requestAnswer();
+      }
 
       if (!res.ok) {
         const errorPayload = await readApiPayload<unknown>(res);
@@ -220,12 +242,13 @@ export default function ChatWindow() {
       };
 
       setMessages((prev) => [...prev, botMsg]);
-    } catch (err: any) {
-      console.error('Chat error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected chat error occurred.';
+      console.warn('Chat request failed:', errorMessage);
       const errorMsg: Message = {
         id: `err_${Date.now()}`,
         sender: 'bot',
-        content: `⚠️ The question could not be completed. Check the backend terminal for an [ASK] failed message. (${err.message})`,
+        content: `⚠️ ${errorMessage}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);

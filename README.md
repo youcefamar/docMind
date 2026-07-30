@@ -143,7 +143,16 @@ The Chat screen saves the current conversation, selected category, and retrieval
 profile in versioned browser local storage on that same machine. Moving between
 Chat and Knowledge Base—or refreshing the page—restores the conversation
 without sending it anywhere. **Clear Chat** removes the previous stored
-conversation.
+conversation. Before a question is sent, the frontend limits saved history to
+the newest messages and a character budget; the backend applies its own
+`DOCMIND_CHAT_HISTORY_MAX_TURNS` and `DOCMIND_CHAT_HISTORY_MAX_CHARACTERS`
+limits too. This protects the local GGUF context window even when a long chat
+is restored from the browser.
+
+Chat requests use a frontend proxy at `/api/backend/ask`. It returns structured
+JSON if FastAPI is unavailable, and the UI retries one temporary `503` response
+to tolerate a short backend reload window without showing a raw `Internal
+Server Error` page.
 
 ---
 

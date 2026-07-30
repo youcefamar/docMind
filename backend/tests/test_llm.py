@@ -123,6 +123,24 @@ def test_local_service_builds_source_labelled_prompt():
     assert "Never create a label" in messages[0]["content"]
 
 
+def test_local_service_bounds_chat_history_to_the_configured_context_budget(monkeypatch):
+    monkeypatch.setenv("DOCMIND_CHAT_HISTORY_MAX_TURNS", "2")
+    monkeypatch.setenv("DOCMIND_CHAT_HISTORY_MAX_CHARACTERS", "20")
+    service = LLMService(auto_load=False)
+    history = [
+        {"sender": "user", "content": "first message"},
+        {"sender": "bot", "content": "second message"},
+        {"sender": "user", "content": "third message"},
+        {"sender": "bot", "content": "fourth message"},
+    ]
+
+    messages = service._build_messages("Question", [_source()], history)
+
+    history_messages = messages[1:-1]
+    assert [message["content"] for message in history_messages] == ["essage", "fourth message"]
+    assert sum(len(message["content"]) for message in history_messages) == 20
+
+
 def test_local_service_refuses_low_score_context(monkeypatch):
     monkeypatch.setenv("DOCMIND_MIN_SOURCE_SCORE", "0.5")
     service = LLMService(auto_load=False)

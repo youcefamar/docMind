@@ -57,6 +57,13 @@ def _float_environment(name: str, default: float) -> float:
         return default
 
 
+def _int_environment(name: str, default: int, minimum: int = 0) -> int:
+    try:
+        return max(minimum, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
 def normalize_citation_labels(answer: str) -> str:
     """Expand grouped source labels into the API's individual citation format."""
 
@@ -305,7 +312,7 @@ class LLMService:
             "Use non-thinking mode: /no_think."
         )
         messages = [{"role": "system", "content": system_prompt}]
-        for message in chat_history[-4:]:
+        for message in self._bounded_chat_history(chat_history):
             role = "user" if message.get("sender") == "user" or message.get("role") == "user" else "assistant"
             messages.append({"role": role, "content": message.get("content", "")})
         messages.append(
@@ -317,6 +324,31 @@ class LLMService:
             }
         )
         return messages
+
+    @staticmethod
+    def _bounded_chat_history(chat_history: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Keep recent conversational context inside the local GGUF window."""
+
+        max_turns = _int_environment("DOCMIND_CHAT_HISTORY_MAX_TURNS", 4)
+        max_characters = _int_environment("DOCMIND_CHAT_HISTORY_MAX_CHARACTERS", 1600)
+        bounded_history: List[Dict[str, str]] = []
+        remaining_characters = max_characters
+
+        for message in reversed(chat_history[-max_turns:]):
+            if remaining_characters <= 0:
+                break
+            content = str(message.get("content", ""))[-remaining_characters:]
+            if not content:
+                continue
+            bounded_history.append(
+                {
+                    "sender": str(message.get("sender", message.get("role", "assistant"))),
+                    "content": content,
+                }
+            )
+            remaining_characters -= len(content)
+
+        return list(reversed(bounded_history))
 
     @staticmethod
     def _is_refusal(answer: str) -> bool:

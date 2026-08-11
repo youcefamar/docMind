@@ -125,13 +125,17 @@ const emptyData: OverviewData = {
   config: null,
 };
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 async function readEndpoint<T>(url: string, signal?: AbortSignal): Promise<T | null> {
   try {
     const response = await fetch(url, { signal });
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    if (isAbortError(error)) throw error;
     return null;
   }
 }
@@ -230,26 +234,33 @@ export default function OverviewDashboard() {
   const [activityWindow, setActivityWindow] = useState('7');
 
   const loadOverview = useCallback(async (signal?: AbortSignal) => {
-    const [documents, runtime, sources, config] = await Promise.all([
-      readEndpoint<DocumentSummary[]>('/api/backend/docs', signal),
-      readEndpoint<RuntimeStatus>('/api/backend/runtime/status', signal),
-      readEndpoint<SourceStatus>('/api/backend/sources/status', signal),
-      readEndpoint<PublicConfiguration>('/api/backend/config/', signal),
-    ]);
+    try {
+      const [documents, runtime, sources, config] = await Promise.all([
+        readEndpoint<DocumentSummary[]>('/api/backend/docs', signal),
+        readEndpoint<RuntimeStatus>('/api/backend/runtime/status', signal),
+        readEndpoint<SourceStatus>('/api/backend/sources/status', signal),
+        readEndpoint<PublicConfiguration>('/api/backend/config/', signal),
+      ]);
 
-    setData({
-      documents: Array.isArray(documents) ? documents : [],
-      runtime,
-      sources,
-      config,
-    });
-    setHasLiveData(Boolean(documents || runtime || sources || config));
-    setIsLoading(false);
+      if (signal?.aborted) return;
+
+      setData({
+        documents: Array.isArray(documents) ? documents : [],
+        runtime,
+        sources,
+        config,
+      });
+      setHasLiveData(Boolean(documents || runtime || sources || config));
+      setIsLoading(false);
+    } catch (error) {
+      if (isAbortError(error) || signal?.aborted) return;
+      throw error;
+    }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    loadOverview(controller.signal);
+    void loadOverview(controller.signal);
     return () => controller.abort();
   }, [loadOverview]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Bookmark, ChevronDown, ChevronUp, ExternalLink, Sparkles } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 export interface Source {
   doc_id: string;
@@ -26,8 +26,14 @@ interface SourceCardProps {
   citations?: Citation[];
 }
 
+function sourceKey(source: Source) {
+  return `${source.doc_id}-${source.page_number}-${source.excerpt.slice(0, 32)}`;
+}
+
 export default function SourceCard({ sources, citations = [] }: SourceCardProps) {
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(0);
+  const [expandedSourceKey, setExpandedSourceKey] = useState<string | null>(
+    () => sources[0] ? sourceKey(sources[0]) : null,
+  );
 
   if (!sources || sources.length === 0) return null;
 
@@ -67,18 +73,21 @@ export default function SourceCard({ sources, citations = [] }: SourceCardProps)
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {sources.map((src, idx) => {
-          const isExpanded = expandedIdx === idx;
+        {sources.map((src) => {
+          const itemKey = sourceKey(src);
+          const isExpanded = expandedSourceKey === itemKey;
           const matchPercent = Math.round((src.similarity || 0) * 100);
 
           return (
             <div
-              key={`${src.doc_id}-${idx}`}
+              key={itemKey}
               className="rounded-xl border border-[#e8e8e5] bg-[#fcfcfb] p-3 text-left transition-all hover:border-slate-300"
             >
-              <div
-                className="flex items-start justify-between cursor-pointer gap-2"
-                onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                className="flex w-full cursor-pointer items-start justify-between gap-2 text-left"
+                onClick={() => setExpandedSourceKey(isExpanded ? null : itemKey)}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
                   <div className="flex-shrink-0 rounded-lg bg-slate-100 p-1.5 text-slate-500">
@@ -117,7 +126,7 @@ export default function SourceCard({ sources, citations = [] }: SourceCardProps)
                     <ChevronDown className="h-4 w-4 text-slate-400" />
                   )}
                 </div>
-              </div>
+              </button>
 
               {/* Collapsible Chunk Excerpt */}
               {isExpanded && (

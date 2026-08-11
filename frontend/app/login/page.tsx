@@ -47,12 +47,16 @@ export default function LoginPage() {
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <label
+              htmlFor="username"
+              className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500"
+            >
               Email / Username
             </label>
             <div className="relative">
               <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
+                id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -63,12 +67,16 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <label
+              htmlFor="password"
+              className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500"
+            >
               Password
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

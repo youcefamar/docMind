@@ -121,13 +121,13 @@ export default function ChatWindow() {
   const [isChatSessionRestored, setIsChatSessionRestored] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const lastMessageId = messages.at(-1)?.id;
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, isLoading]);
+    if (lastMessageId || isLoading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' });
+    }
+  }, [lastMessageId, isLoading]);
 
   useEffect(() => {
     const savedSession = restoreChatSession();
@@ -277,6 +277,7 @@ export default function ChatWindow() {
           <span className="mr-1 text-xs font-medium text-slate-500">Scope</span>
           {categories.map((cat) => (
             <button
+              type="button"
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
@@ -320,6 +321,7 @@ export default function ChatWindow() {
 
         {/* Clear Chat Action */}
         <button
+          type="button"
           onClick={handleClearChat}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600"
           title="Clear Session History"
@@ -423,9 +425,10 @@ export default function ChatWindow() {
             Try asking:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {suggestedPrompts.map((prompt, i) => (
+            {suggestedPrompts.map((prompt) => (
               <button
-                key={i}
+                type="button"
+                key={prompt}
                 onClick={() => handleSend(prompt)}
                 className="truncate rounded-xl border border-[#e6e6e3] bg-[#fafaf9] p-2.5 text-left text-xs text-slate-600 transition-all hover:border-slate-300 hover:bg-white hover:text-slate-900"
               >

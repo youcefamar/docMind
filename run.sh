@@ -114,6 +114,21 @@ start_frontend() {
     npm run dev
 }
 
+wait_for_backend() {
+    echo -e "${YELLOW}⏳ Waiting for FastAPI Backend (loading AI models)...${NC}"
+    local retries=30
+    local count=0
+    while [ $count -lt $retries ]; do
+        if curl -s http://127.0.0.1:8000/health >/dev/null 2>&1 || curl -s http://localhost:8000/health >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ FastAPI Backend is ready!${NC}"
+            return 0
+        fi
+        sleep 1
+        count=$((count + 1))
+    done
+    echo -e "${YELLOW}⚠️ Backend start timeout reached. Launching frontend anyway...${NC}"
+}
+
 start_dev_hybrid() {
     echo -e "${GREEN}⚡ Starting Hybrid Mode (pgvector in Docker + Local Backend & Frontend)...${NC}"
     
@@ -122,7 +137,7 @@ start_dev_hybrid() {
     trap 'echo -e "${YELLOW}Stopping local development processes...${NC}"; kill 0' INT TERM EXIT
 
     (start_backend) &
-    sleep 3
+    wait_for_backend
     (start_frontend) &
 
     wait
@@ -133,7 +148,7 @@ start_all() {
     trap 'echo -e "${YELLOW}Stopping local processes...${NC}"; kill 0' INT TERM EXIT
 
     (start_backend) &
-    sleep 2
+    wait_for_backend
     (start_frontend) &
 
     wait

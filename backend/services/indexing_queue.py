@@ -151,6 +151,7 @@ class BackgroundIndexQueue:
                 pending_count,
             )
             try:
+                completed_documents = 0
                 if task.document_id is None:
                     index_result = self.indexer("<catalog-rebuild>", force_rebuild=True)
                     completed_documents = self.ingestion_service.complete_catalog_indexing(
@@ -165,13 +166,14 @@ class BackgroundIndexQueue:
                             force_rebuild=task.force_rebuild,
                         ),
                     )
+                    completed_documents = 1
                 with self._lock:
                     self._last_completed_at = datetime.now(timezone.utc).isoformat()
                 logger.info(
                     "[INDEX_QUEUE] ✅ completed file=%s document_id=%s finalized_documents=%d elapsed_ms=%.1f",
                     document_label,
                     task.document_id or "<catalog>",
-                    completed_documents if task.document_id is None else 1,
+                    completed_documents,
                     (time.perf_counter() - started_at) * 1000,
                 )
             except Exception as error:

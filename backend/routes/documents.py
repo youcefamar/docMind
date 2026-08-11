@@ -146,7 +146,7 @@ async def delete_document(doc_id: str):
         if not document or not ingestion_service.delete(doc_id):
             raise HTTPException(status_code=404, detail="Document not found.")
         if dense_index and dense_index.model_ready:
-            indexing_queue.enqueue_rebuild()
+            indexing_queue.enqueue_rebuild([doc_id])
 
         return {
             "message": f"Successfully deleted document with ID '{doc_id}'",

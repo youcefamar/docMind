@@ -289,7 +289,7 @@ class DenseIndexService:
         if top_k <= 0:
             return []
 
-        query = self._normalize([query_vector])
+        query = np.array([query_vector], dtype="float32")
         with self._lock:
             if self.index is None or not self.chunk_ids:
                 return []

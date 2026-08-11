@@ -9,6 +9,7 @@
       "source_filename": "Qwen3-4B-Q4_K_M.gguf",
       "filename": "qwen3-4b-q4_k_m.gguf",
       "url": "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+      "sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
       "size_mb": 2500,
       "recommended": true,
       "description": "Offline multilingual generation target for the DocMind CPU profile."

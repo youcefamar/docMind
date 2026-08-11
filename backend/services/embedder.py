@@ -94,7 +94,7 @@ class DocumentProcessor:
                     "total_pages": num_pages,
                     "chunk_index": global_chunk_idx,
                     "text": chunk_text,
-                    "created_at": datetime.datetime.utcnow().isoformat()
+                    "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
                 })
                 global_chunk_idx += 1
 

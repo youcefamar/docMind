@@ -85,16 +85,26 @@ This is a solo project. There is no PR review requirement.
 
 ```
 main is the normal working branch.
-Commit directly to main in small, coherent commits.
-No feature branch is required unless you are doing a risky multi-step change.
-If you do branch: feature/x, fix/x, chore/x, docs/x — merge and delete when done.
+No feature branch is required unless doing a risky multi-step change.
+If branching: feature/x, fix/x, chore/x, docs/x — merge and delete when done.
 Never force-push unless explicitly asked.
 Never commit: secrets, .env, model weights (.gguf), FAISS index files,
               BM25 JSON indexes, SQLite files, generated embeddings, or large caches.
-Check git diff/status before every commit.
 ```
 
-Quality gates before committing:
+### ⚠️ Agent commit/push rules — read carefully
+
+**The agent MUST NOT run `git commit`, `git push`, or `git merge` autonomously.**
+
+The user owns the git history. The agent's job is to make code changes, run quality gates, and report what's ready. The user decides when and what to commit.
+
+**Only exceptions** — the agent may run git commands without explicit instruction when:
+- The user says "commit this", "push this", or similar direct instruction.
+- The user's request is *only* about a git operation (e.g. "create a branch", "check status").
+
+In all other cases: make the changes → run the gates → stop → tell the user what to commit.
+
+Quality gates to run before telling the user to commit:
 
 ```bash
 # Backend
@@ -105,7 +115,7 @@ cd backend && .venv/Scripts/python.exe -m pytest tests/ -q
 cd frontend && npm run build
 ```
 
-All gate checks must pass. Do not commit with failing tests or lint errors.
+All gate checks must pass. Do not tell the user to commit with failing tests or lint errors.
 
 ---
 

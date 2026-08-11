@@ -7,12 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements & install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy backend code
+# Copy pyproject.toml and source then install production dependencies only
+COPY pyproject.toml .
 COPY . .
+RUN pip install --no-cache-dir .
 
 # Expose port
 EXPOSE 8000

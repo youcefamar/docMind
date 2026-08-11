@@ -13,6 +13,7 @@ from services.embedder import QwenEmbeddingService
 from services.folder_sync import FolderSyncService
 from services.indexing_queue import BackgroundIndexQueue
 from services.ingestion import DocumentIngestionService
+from services.llm import LLMService
 from services.metadata_store import MetadataStore
 from services.quality_retriever import QualityRetriever
 from services.reranker import LocalReranker
@@ -65,6 +66,8 @@ if RERANKER_PATH and Path(RERANKER_PATH).is_dir():
 quality_retriever: QualityRetriever | None = None
 if dense_index is not None:
     quality_retriever = QualityRetriever(dense_index, bm25_index, reranker)
+
+llm_service = LLMService()
 
 
 logger = logging.getLogger("docmind.index")

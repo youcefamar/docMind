@@ -200,7 +200,7 @@ async def select_active_model(request: SelectModelRequest) -> dict[str, Any]:
     config["active_model_id"] = request.model_id
     _save_config(config)
 
-    from routes.chat import llm_service
+    from services.runtime import llm_service
 
     llm_service.model_path = str(file_path)
     llm_service._init_local_model()

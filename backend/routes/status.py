@@ -4,6 +4,7 @@ from services.runtime import (
     dense_index,
     embedding_service,
     indexing_queue,
+    llm_service,
     metadata_store,
     quality_retriever,
     reranker,
@@ -15,8 +16,6 @@ router = APIRouter(prefix="/api/runtime", tags=["Runtime"])
 @router.get("/status")
 async def runtime_status() -> dict:
     """Expose safe readiness state for the workspace UI and local diagnostics."""
-
-    from routes.chat import llm_service
 
     documents = metadata_store.list_documents()
     return {

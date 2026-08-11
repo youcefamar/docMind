@@ -7,9 +7,9 @@ from fastapi import APIRouter, HTTPException
 from models.contracts import RetrievalProfile
 from pydantic import BaseModel, Field
 from services.embedder import EmbeddingService
-from services.llm import LLMService, citation_is_supported, validate_citations
+from services.llm import citation_is_supported, validate_citations
 from services.retriever import VectorStoreService
-from services.runtime import dense_index, quality_retriever
+from services.runtime import dense_index, llm_service, quality_retriever
 from services.settings import settings
 
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -55,7 +55,6 @@ class AskResponse(BaseModel):
 
 embedder_service = EmbeddingService()
 retriever_service = VectorStoreService()
-llm_service = LLMService()
 
 
 def _dense_sources(question: str, category: Optional[str], top_k: int) -> list[dict]:

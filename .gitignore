@@ -13,6 +13,7 @@ backend/.venv/
 backend/venv/
 backend/.coverage
 backend/models/*.gguf
+backend/docmind_backend.egg-info/
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
 notebooks/dummy_files/

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "docmind-backend"
 version = "1.0.0"
 description = "Offline Internal Knowledge Assistant API with local hybrid RAG retrieval"
-readme = "README.md"
+
 authors = [
     { name = "DocMind Engineering Team", email = "engineering@docmind.internal" }
 ]
@@ -52,3 +52,14 @@ src = ["routes", "services", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "models*",
+    "routes*",
+    "services*",
+]
+exclude = [
+    "tests*",
+]

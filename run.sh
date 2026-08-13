@@ -4,7 +4,7 @@
 # DocMind — Control & Setup Script
 #
 # Usage:
-#   ./run.sh setup        First-time setup
+#   ./run.sh setup        First-time setup (backend, web, and mobile dependencies)
 #   ./run.sh dev          PostgreSQL in Docker + backend/frontend locally
 #   ./run.sh ingest       Ingest PDFs into pgvector
 #   ./run.sh all          Backend + frontend locally
@@ -126,7 +126,7 @@ show_help() {
     echo "  ./run.sh [OPTION]"
     echo ""
     echo "Options:"
-    echo "  setup, -i            First-time setup"
+    echo "  setup, -i            First-time setup (backend, web, and mobile dependencies)"
     echo "  dev, -s              PostgreSQL Docker + local backend/frontend"
     echo "  ingest, -g           Ingest PDFs from data/documents/"
     echo "  all, -a              Local backend + frontend"
@@ -200,6 +200,15 @@ run_setup() {
     fi
 
     echo -e "${CYAN}Installing frontend dependencies...${NC}"
+    npm install
+
+    # --------------------------------------------------------------------------
+    # Mobile app
+    # --------------------------------------------------------------------------
+
+    cd "$ROOT_DIR/mobile-app"
+
+    echo -e "${CYAN}Installing mobile app dependencies...${NC}"
     npm install
 
     cd "$ROOT_DIR"

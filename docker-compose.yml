@@ -3,7 +3,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: docmind-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: docmind
       POSTGRES_PASSWORD: docmind_secret

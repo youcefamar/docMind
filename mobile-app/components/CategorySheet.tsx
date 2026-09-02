@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,12 +10,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { colors, fontSize, radii, spacing } from '../lib/theme';
 
 export interface CategorySheetProps {
   visible: boolean;
   categories: string[];
   selectedCategory: string;
+  pickedFilename?: string;
   onSelect: (category: string) => void;
   onClose: () => void;
 }
@@ -22,12 +26,25 @@ export function CategorySheet({
   visible,
   categories,
   selectedCategory,
+  pickedFilename,
   onSelect,
   onClose,
 }: CategorySheetProps) {
   const [newCategory, setNewCategory] = useState('');
+  const [chosenCategory, setChosenCategory] = useState(selectedCategory || 'General');
 
   if (!visible) return null;
+
+  // Filter out "All" from assignable upload categories
+  const assignableCategories = Array.from(
+    new Set(['General', ...categories.filter((c) => c && c.toLowerCase() !== 'all')])
+  );
+
+  const handleConfirm = () => {
+    const finalCat = newCategory.trim() || chosenCategory || 'General';
+    onSelect(finalCat);
+    setNewCategory('');
+  };
 
   return (
     <Modal
@@ -41,64 +58,83 @@ export function CategorySheet({
         activeOpacity={1}
         onPress={onClose}
       >
-        <View
-          style={styles.sheet}
-          onStartShouldSetResponder={() => true}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.sheetWrapper}
         >
-          <Text style={styles.title}>Select Category</Text>
-
-          <ScrollView style={styles.list}>
-            {categories.map((cat) => (
+          <View
+            style={styles.sheet}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.title}>Assign Category</Text>
+                {pickedFilename ? (
+                  <Text style={styles.filename} numberOfLines={1}>
+                    File: {pickedFilename}
+                  </Text>
+                ) : null}
+              </View>
               <TouchableOpacity
-                key={cat}
-                style={[
-                  styles.option,
-                  selectedCategory === cat && styles.selectedOption,
-                ]}
-                onPress={() => {
-                  onSelect(cat);
-                  onClose();
-                }}
+                onPress={onClose}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text
-                  style={[
-                    styles.optionText,
-                    selectedCategory === cat && styles.selectedOptionText,
-                  ]}
-                >
-                  {cat}
-                </Text>
+                <Feather name="x" size={20} color={colors.muted} />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            </View>
 
-          <View style={styles.newCategoryRow}>
-            <TextInput
-              style={styles.input}
-              placeholder="Or add new category..."
-              placeholderTextColor={colors.muted}
-              value={newCategory}
-              onChangeText={setNewCategory}
-            />
+            <ScrollView style={[styles.list, { maxHeight: 220 }]}>
+              {assignableCategories.map((cat) => {
+                const isSelected = !newCategory.trim() && chosenCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.option, isSelected && styles.selectedOption]}
+                    onPress={() => {
+                      setChosenCategory(cat);
+                      setNewCategory('');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        isSelected && styles.selectedOptionText,
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                    {isSelected ? (
+                      <Feather name="check" size={16} color={colors.ink} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.newCategorySection}>
+              <Text style={styles.sectionLabel}>Or enter a new category</Text>
+              <View style={styles.newCategoryRow}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Finance, Legal, Engineering"
+                  placeholderTextColor={colors.muted}
+                  value={newCategory}
+                  onChangeText={setNewCategory}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+
             <TouchableOpacity
-              style={[
-                styles.addButton,
-                !newCategory.trim() && styles.addButtonDisabled,
-              ]}
-              disabled={!newCategory.trim()}
-              onPress={() => {
-                const trimmed = newCategory.trim();
-                if (trimmed) {
-                  onSelect(trimmed);
-                  setNewCategory('');
-                  onClose();
-                }
-              }}
+              style={styles.confirmButton}
+              onPress={handleConfirm}
+              activeOpacity={0.8}
             >
-              <Text style={styles.addButtonText}>Use</Text>
+              <Text style={styles.confirmButtonText}>Confirm & Upload</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </TouchableOpacity>
     </Modal>
   );
@@ -107,7 +143,10 @@ export function CategorySheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheetWrapper: {
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -115,18 +154,33 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
     padding: spacing.xl,
-    maxHeight: '70%',
+    paddingBottom: spacing.xl + 16,
+    maxHeight: '85%',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: fontSize.lg,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.ink,
-    marginBottom: spacing.md,
+  },
+  filename: {
+    fontSize: fontSize.xs,
+    color: colors.muted,
+    marginTop: 2,
+    maxWidth: 260,
   },
   list: {
     marginBottom: spacing.md,
   },
   option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
@@ -143,10 +197,21 @@ const styles = StyleSheet.create({
   selectedOptionText: {
     fontWeight: '600',
   },
+  newCategorySection: {
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  sectionLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    color: colors.muted,
+    marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   newCategoryRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   input: {
     flex: 1,
@@ -159,18 +224,14 @@ const styles = StyleSheet.create({
     fontSize: fontSize.base,
     color: colors.ink,
   },
-  addButton: {
-    height: 44,
-    paddingHorizontal: spacing.lg,
+  confirmButton: {
+    height: 48,
     backgroundColor: colors.ink,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addButtonDisabled: {
-    opacity: 0.4,
-  },
-  addButtonText: {
+  confirmButtonText: {
     color: '#ffffff',
     fontSize: fontSize.base,
     fontWeight: '600',

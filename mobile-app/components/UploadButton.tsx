@@ -1,28 +1,47 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { colors, fontSize, radii, spacing } from '../lib/theme';
 
 export interface UploadButtonProps {
   onPress: () => void;
   isLoading?: boolean;
+  supportedExtensions?: string[];
 }
 
-export function UploadButton({ onPress, isLoading = false }: UploadButtonProps) {
+export function UploadButton({
+  onPress,
+  isLoading = false,
+  supportedExtensions = ['PDF', 'DOCX', 'PPTX', 'XLSX', 'TXT', 'MD'],
+}: UploadButtonProps) {
+  const extensionsText = supportedExtensions
+    .map((ext) => ext.replace(/^\./, '').toUpperCase())
+    .join(' · ');
+
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={[styles.button, isLoading && styles.buttonLoading]}
       onPress={onPress}
       disabled={isLoading}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
       <View style={styles.content}>
-        <Feather name="upload" size={18} color={colors.ink} />
+        {isLoading ? (
+          <ActivityIndicator size="small" color={colors.ink} style={styles.icon} />
+        ) : (
+          <Feather name="upload" size={18} color={colors.ink} style={styles.icon} />
+        )}
         <Text style={styles.text}>
-          {isLoading ? 'Uploading...' : 'Pick files to upload'}
+          {isLoading ? 'Uploading & extracting document...' : 'Pick files to upload'}
         </Text>
       </View>
-      <Text style={styles.subtext}>PDF · DOCX · PPTX · XLSX · TXT · MD</Text>
+      <Text style={styles.subtext}>{extensionsText}</Text>
     </TouchableOpacity>
   );
 }
@@ -30,28 +49,38 @@ export function UploadButton({ onPress, isLoading = false }: UploadButtonProps) 
 const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
     borderRadius: radii.md,
     marginHorizontal: spacing.lg,
     marginVertical: spacing.sm,
-    padding: spacing.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
-    borderStyle: 'dashed',
+    justifyContent: 'center',
+  },
+  buttonLoading: {
+    backgroundColor: colors.chipInactive,
+    borderColor: colors.line,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
+  },
+  icon: {
+    marginRight: spacing.sm,
   },
   text: {
     fontSize: fontSize.base,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.ink,
   },
   subtext: {
     fontSize: fontSize.xs,
     color: colors.muted,
     marginTop: 4,
+    letterSpacing: 0.3,
   },
 });

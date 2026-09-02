@@ -350,6 +350,8 @@ export default function DocumentsScreen() {
       <FlatList
         data={filteredDocuments}
         keyExtractor={(item) => item.id}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <DocumentRow
             doc={item}

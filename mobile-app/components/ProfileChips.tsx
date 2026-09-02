@@ -18,6 +18,9 @@ export function ProfileChips({ selected, onChange }: ProfileChipsProps) {
         style={[styles.chip, isFast ? styles.activeChip : styles.inactiveChip]}
         onPress={() => onChange('fast')}
         activeOpacity={0.7}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: isFast }}
+        accessibilityLabel="Fast retrieval profile"
       >
         <Feather
           name="zap"
@@ -34,6 +37,9 @@ export function ProfileChips({ selected, onChange }: ProfileChipsProps) {
         style={[styles.chip, isQuality ? styles.activeChip : styles.inactiveChip]}
         onPress={() => onChange('quality')}
         activeOpacity={0.7}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: isQuality }}
+        accessibilityLabel="Quality retrieval profile with BM25 and reranker"
       >
         <Feather
           name="star"

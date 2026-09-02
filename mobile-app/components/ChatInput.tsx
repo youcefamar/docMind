@@ -43,6 +43,8 @@ export function ChatInput({
           onPress={handleSend}
           disabled={isSendDisabled}
           activeOpacity={0.8}
+          accessibilityLabel="Send question"
+          accessibilityRole="button"
         >
           <Feather name="arrow-up" size={18} color="#ffffff" />
         </TouchableOpacity>

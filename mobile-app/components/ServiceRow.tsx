@@ -8,6 +8,8 @@ export interface ServiceRowProps {
   ready: boolean;
   loading?: boolean;
   statusText?: string;
+  isLast?: boolean;
+  icon?: React.ReactNode;
 }
 
 export function ServiceRow({
@@ -15,14 +17,20 @@ export function ServiceRow({
   ready,
   loading = false,
   statusText,
+  isLast = false,
+  icon,
 }: ServiceRowProps) {
   const displayStatus =
     statusText || (loading ? 'Loading' : ready ? 'Ready' : 'Not Ready');
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, isLast && styles.rowLast]}>
       <View style={styles.left}>
-        <StatusDot ready={ready} loading={loading} />
+        {icon ? (
+          icon
+        ) : (
+          <StatusDot ready={ready} loading={loading} />
+        )}
         <Text style={styles.label}>{label}</Text>
       </View>
       <View
@@ -60,6 +68,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
+  },
+  rowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
   },
   left: {
     flexDirection: 'row',

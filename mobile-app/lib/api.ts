@@ -2,17 +2,83 @@ import * as SecureStore from 'expo-secure-store';
 
 const BASE_URL_KEY = 'docmind.server_url';
 
+export function normalizeBaseUrl(url: string): string {
+  let trimmed = url.trim();
+  if (!trimmed) return '';
+  if (!/^https?:\/\//i.test(trimmed)) {
+    trimmed = `http://${trimmed}`;
+  }
+  return trimmed.replace(/\/+$/, '');
+}
+
 export async function getBaseUrl(): Promise<string> {
   try {
     const stored = await SecureStore.getItemAsync(BASE_URL_KEY);
-    return stored ?? '';
+    return stored ? normalizeBaseUrl(stored) : '';
   } catch {
     return '';
   }
 }
 
 export async function saveBaseUrl(url: string): Promise<void> {
-  await SecureStore.setItemAsync(BASE_URL_KEY, url.replace(/\/+$/, ''));
+  const normalized = normalizeBaseUrl(url);
+  await SecureStore.setItemAsync(BASE_URL_KEY, normalized);
+}
+
+export async function clearBaseUrl(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(BASE_URL_KEY);
+  } catch {
+    // Ignore clear error
+  }
+}
+
+export async function testConnection(url: string): Promise<{ success: boolean; error?: string }> {
+  const normalized = normalizeBaseUrl(url);
+  if (!normalized) {
+    return { success: false, error: 'Please enter a server URL.' };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+  try {
+    // Try /health first
+    const res = await fetch(`${normalized}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      return { success: true };
+    }
+
+    // Try /api/runtime/status as fallback
+    const altRes = await fetch(`${normalized}/api/runtime/status`, {
+      method: 'GET',
+    });
+    if (altRes.ok) {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: `Server responded with status HTTP ${res.status}.`,
+    };
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Connection timed out. Make sure the server is reachable on this network.',
+      };
+    }
+    return {
+      success: false,
+      error: 'Could not connect to server. Check IP address, port, and Wi-Fi connection.',
+    };
+  }
 }
 
 export async function apiFetch(path: string, options?: RequestInit): Promise<Response> {

@@ -1,5 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import {
+  Animated,
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { fontSize, radii, spacing } from '../lib/theme';
 
 export interface ToastProps {
@@ -9,8 +17,34 @@ export interface ToastProps {
   duration?: number;
 }
 
-export function Toast({ message, type = 'info', onDismiss, duration = 3000 }: ToastProps) {
+export function Toast({
+  message,
+  type = 'info',
+  onDismiss,
+  duration = 3000,
+}: ToastProps) {
   const translateY = useRef(new Animated.Value(-100)).current;
+
+  const dismiss = () => {
+    Animated.timing(translateY, {
+      toValue: -120,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      onDismiss?.();
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy < -5,
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -15) {
+          dismiss();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     Animated.spring(translateY, {
@@ -20,17 +54,11 @@ export function Toast({ message, type = 'info', onDismiss, duration = 3000 }: To
     }).start();
 
     const timer = setTimeout(() => {
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 250,
-        useNativeDriver: true,
-      }).start(() => {
-        onDismiss?.();
-      });
+      dismiss();
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [duration, onDismiss, translateY]);
+  }, [duration, translateY]);
 
   const bgStyle =
     type === 'success'
@@ -46,25 +74,35 @@ export function Toast({ message, type = 'info', onDismiss, duration = 3000 }: To
       ? styles.errorText
       : styles.infoText;
 
+  const iconName =
+    type === 'success'
+      ? 'check-circle'
+      : type === 'error'
+      ? 'alert-circle'
+      : 'info';
+
+  const iconColor =
+    type === 'success'
+      ? '#059669'
+      : type === 'error'
+      ? '#e11d48'
+      : '#0284c7';
+
   return (
     <Animated.View
       style={[styles.container, bgStyle, { transform: [{ translateY }] }]}
       accessibilityLiveRegion="polite"
+      {...panResponder.panHandlers}
     >
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => {
-          Animated.timing(translateY, {
-            toValue: -100,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(() => {
-            onDismiss?.();
-          });
-        }}
+        onPress={dismiss}
         style={styles.touchable}
       >
-        <Text style={[styles.text, textStyle]}>{message}</Text>
+        <Feather name={iconName} size={18} color={iconColor} style={styles.icon} />
+        <Text style={[styles.text, textStyle]} numberOfLines={3}>
+          {message}
+        </Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -80,19 +118,25 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 8,
   },
   touchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  icon: {
+    marginRight: spacing.sm,
   },
   text: {
-    fontSize: fontSize.md,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 18,
   },
   successBg: {
     backgroundColor: '#dcfce7',

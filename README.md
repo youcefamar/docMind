@@ -1,4 +1,4 @@
-# DocMind — Internal Knowledge Assistant 🧠📄
+# DocMind — Internal Knowledge Assistant
 
 > **Problem**: Employees waste hours searching through bulky PDFs.  
 > **Solution**: DocMind allows employees to ask questions in plain natural language and receive instant, grounded answers accompanied by exact source document citations and page numbers.
@@ -77,32 +77,7 @@ docmind/
 
 ---
 
-## 🗓️ 4-Week Execution Plan
-
-- [x] **Week 1 — Core RAG Pipeline (Notebook Prototype)**
-  - PDF loading via `pypdf` -> Chunking -> Vector embedding via `sentence-transformers` -> Indexing in the local retrieval store.
-  - Query the local FAISS/BM25 indexes -> Retrieve top matching chunks -> Synthesize answer with the configured local LLM -> Citation extraction.
-  - Notebook available in `notebooks/rag_pipeline_demo.ipynb`.
-
-- [x] **Week 2 — FastAPI Backend Services**
-  - `POST /api/upload`: Validate and store PDF, DOCX, PPTX, XLSX, XLS, TXT, and MD files locally, extract chunks, and persist metadata.
-  - `POST /api/ask`: Takes question + chat history + category filter, retrieves sources, calls the local generation service, and assesses confidence.
-  - `GET /api/docs`: Catalogs uploaded documents with page and chunk metrics.
-  - `DELETE /api/doc/{id}`: Removes document vectors cleanly from vector store.
-
-- [x] **Week 3 — Next.js Frontend & Design System**
-  - Dark mode glassmorphism theme, glowing indigo highlights, Inter font typography.
-  - Interactive multi-turn chat window with category filter pills, clear session action, and instant suggested prompts.
-  - Source Cards showing document name, page number, match score percentage, and excerpt quotes.
-  - Admin page for PDF drag-and-drop uploads, category assignment, document search, and removal.
-
-- [x] **Week 4 — NextAuth Integration & Docker Deployment**
-  - Protected API routes and authentication using NextAuth.js.
-  - Containerized production builds with `docker-compose.yml`.
-
----
-
-## ⚡ Quickstart Guide
+##  Quickstart Guide
 
 ### 1. Environment Setup
 No cloud API key is required for the P1 ingestion path. Optionally set the local

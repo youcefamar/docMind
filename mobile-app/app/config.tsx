@@ -57,6 +57,16 @@ export default function ConfigScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      {router.canGoBack() ? (
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Go back"
+        >
+          <Feather name="arrow-left" size={22} color={colors.ink} />
+        </TouchableOpacity>
+      ) : null}
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -299,5 +309,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     flex: 1,
+  },
+  backButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    alignSelf: 'flex-start',
   },
 });

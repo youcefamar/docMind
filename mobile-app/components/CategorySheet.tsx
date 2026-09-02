@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, radii, spacing } from '../lib/theme';
 
 export interface CategorySheetProps {
@@ -30,6 +31,7 @@ export function CategorySheet({
   onSelect,
   onClose,
 }: CategorySheetProps) {
+  const insets = useSafeAreaInsets();
   const [newCategory, setNewCategory] = useState('');
   const [chosenCategory, setChosenCategory] = useState(selectedCategory || 'General');
 
@@ -63,7 +65,10 @@ export function CategorySheet({
           style={styles.sheetWrapper}
         >
           <View
-            style={styles.sheet}
+            style={[
+              styles.sheet,
+              { paddingBottom: Math.max(insets.bottom, 12) + spacing.xl },
+            ]}
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.header}>

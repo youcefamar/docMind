@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fontSize, radii, spacing } from '../lib/theme';
 
 export interface ConfirmSheetProps {
@@ -23,6 +24,7 @@ export function ConfirmSheet({
   onConfirm,
   onCancel,
 }: ConfirmSheetProps) {
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
 
   return (
@@ -38,7 +40,10 @@ export function ConfirmSheet({
         onPress={onCancel}
       >
         <View
-          style={styles.sheet}
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, 12) + spacing.lg },
+          ]}
           onStartShouldSetResponder={() => true}
         >
           <Text style={styles.title}>{title}</Text>

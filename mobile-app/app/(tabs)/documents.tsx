@@ -92,6 +92,13 @@ export default function DocumentsScreen() {
     return [];
   }, []);
 
+  const refreshDocumentsUntilSettled = useCallback(async () => {
+    const list = await fetchDocuments();
+    if (list.some((d) => d.status === 'processing' || d.status === 'queued')) {
+      setTimeout(refreshDocumentsUntilSettled, 1500);
+    }
+  }, [fetchDocuments]);
+
   useEffect(() => {
     async function init() {
       setIsLoading(true);
@@ -116,7 +123,7 @@ export default function DocumentsScreen() {
       const res = await apiFetch('/api/sources/sync', { method: 'POST' });
       if (res.ok) {
         showToast('Knowledge folder sync queued in background.', 'success');
-        await fetchDocuments();
+        refreshDocumentsUntilSettled();
       } else {
         const payload = await readApiPayload(res);
         showToast(getApiErrorMessage(payload, 'Failed to trigger folder sync.'), 'error');
@@ -182,7 +189,7 @@ export default function DocumentsScreen() {
 
       showToast(`'${pickedFile.name}' uploaded and indexed successfully!`, 'success');
       setPickedFile(null);
-      await fetchDocuments();
+      refreshDocumentsUntilSettled();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to upload document.';
       showToast(msg, 'error');
@@ -224,7 +231,7 @@ export default function DocumentsScreen() {
       });
       if (res.ok) {
         showToast(`Reindexing '${doc.filename}'...`, 'info');
-        await fetchDocuments();
+        refreshDocumentsUntilSettled();
       } else {
         const payload = await readApiPayload(res);
         showToast(getApiErrorMessage(payload, 'Reindex failed.'), 'error');

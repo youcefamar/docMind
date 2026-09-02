@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fontSize, radii, spacing } from '../lib/theme';
 
 export interface ToastProps {
@@ -23,6 +24,8 @@ export function Toast({
   onDismiss,
   duration = 3000,
 }: ToastProps) {
+  const insets = useSafeAreaInsets();
+  const topOffset = Math.max(insets.top + 8, 48);
   const translateY = useRef(new Animated.Value(-100)).current;
 
   const dismiss = () => {
@@ -90,7 +93,12 @@ export function Toast({
 
   return (
     <Animated.View
-      style={[styles.container, bgStyle, { transform: [{ translateY }] }]}
+      style={[
+        styles.container,
+        { top: topOffset },
+        bgStyle,
+        { transform: [{ translateY }] },
+      ]}
       accessibilityLiveRegion="polite"
       {...panResponder.panHandlers}
     >

@@ -48,16 +48,19 @@ export async function testConnection(url: string): Promise<{ success: boolean; e
       method: 'GET',
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
 
     if (res.ok) {
+      clearTimeout(timeoutId);
       return { success: true };
     }
 
-    // Try /api/runtime/status as fallback
+    // Try /api/runtime/status as fallback with the same timeout signal
     const altRes = await fetch(`${normalized}/api/runtime/status`, {
       method: 'GET',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (altRes.ok) {
       return { success: true };
     }
@@ -71,7 +74,7 @@ export async function testConnection(url: string): Promise<{ success: boolean; e
     if (err instanceof Error && err.name === 'AbortError') {
       return {
         success: false,
-        error: 'Connection timed out. Make sure the server is reachable on this network.',
+        error: 'Connection timed out. Make sure the server is running and reachable on this Wi-Fi network.',
       };
     }
     return {
@@ -83,6 +86,9 @@ export async function testConnection(url: string): Promise<{ success: boolean; e
 
 export async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
   const base = await getBaseUrl();
+  if (!base) {
+    throw new Error('No server URL configured. Please set server address.');
+  }
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return fetch(`${base}${normalizedPath}`, options);
 }

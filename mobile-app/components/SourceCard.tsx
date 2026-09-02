@@ -54,9 +54,9 @@ export function SourceCard({ sources, citations = [] }: SourceCardProps) {
 
       {citations.length > 0 ? (
         <View style={styles.citationsContainer}>
-          {citations.map((cit) => (
+          {citations.map((cit, idx) => (
             <View
-              key={cit.source_id}
+              key={`${cit.source_id}-${idx}`}
               style={[
                 styles.citationBadge,
                 cit.supported ? styles.citationSupported : styles.citationReview,

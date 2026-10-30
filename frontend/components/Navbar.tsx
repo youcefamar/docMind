@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Bot,
   BrainCircuit,
   Database,
+  GitCompare,
   LayoutDashboard,
   MessageSquare,
   MoreHorizontal,
@@ -35,6 +36,7 @@ interface RecentQuestion {
 
 const primaryNavigation: NavigationItem[] = [
   { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/compare', label: 'Compare', icon: GitCompare },
   { href: '/', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin', label: 'Sources', icon: Database },
   { label: 'Agents', icon: Bot },

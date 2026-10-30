@@ -16,6 +16,7 @@ logging.basicConfig(
 configure_uvicorn_access_logs()
 
 from routes.chat import router as chat_router  # noqa: E402
+from routes.compare import router as compare_router  # noqa: E402
 from routes.config import router as config_router  # noqa: E402
 from routes.documents import router as docs_router  # noqa: E402
 from routes.models import router as models_router  # noqa: E402
@@ -56,6 +57,7 @@ app.add_middleware(
 
 # Include routes
 app.include_router(chat_router)
+app.include_router(compare_router)
 app.include_router(config_router)
 app.include_router(docs_router)
 app.include_router(models_router)

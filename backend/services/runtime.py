@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from services.bm25_index import BM25IndexService
+from services.comparison import DocumentComparisonService
 from services.dense_index import DenseIndexError, DenseIndexService
 from services.embedder import QwenEmbeddingService
 from services.folder_sync import FolderSyncService
@@ -70,6 +71,7 @@ if dense_index is not None:
 
 llm_service = LLMService()
 query_router = QueryRouterService(llm_service)
+comparison_service = DocumentComparisonService(metadata_store, llm_service, query_router)
 
 
 logger = logging.getLogger("docmind.index")

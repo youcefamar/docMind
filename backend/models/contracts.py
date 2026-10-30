@@ -102,3 +102,24 @@ class QueryRoutingResult(BaseModel):
     completion_tokens: Optional[int] = None
     model: str = ""
 
+
+class CompareRequest(BaseModel):
+    document_ids: list[str] = Field(..., min_length=2, description="At least two document IDs to compare")
+    focus_aspect: Optional[str] = Field(default=None, description="Optional topic or clause to focus comparison on")
+
+
+class CompareDocumentInfo(BaseModel):
+    document_id: str
+    filename: str
+    category: str
+    total_pages: int
+    chunk_count: int
+
+
+class CompareResponse(BaseModel):
+    comparison_markdown: str
+    documents: list[CompareDocumentInfo]
+    focus_aspect: Optional[str] = None
+    telemetry: Optional[dict[str, object]] = None
+
+

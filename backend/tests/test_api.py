@@ -338,3 +338,41 @@ def test_ask_includes_dual_nemotron_telemetry(monkeypatch):
     assert telemetry["tier2_tokens_per_second"] == 32.5
     assert telemetry["estimated_credits_saved_percent"] == 72.0
 
+
+def test_compare_endpoint_returns_structured_matrix(monkeypatch):
+    import routes.compare as compare_route
+    from models.contracts import CompareDocumentInfo, CompareResponse
+
+    class FakeComparisonService:
+        def compare_documents(self, document_ids, focus_aspect=None):
+            return CompareResponse(
+                comparison_markdown="# Comparison Matrix\n| A | B |",
+                documents=[
+                    CompareDocumentInfo(
+                        document_id=doc_id,
+                        filename=f"{doc_id}.pdf",
+                        category="HR",
+                        total_pages=2,
+                        chunk_count=3,
+                    )
+                    for doc_id in document_ids
+                ],
+                focus_aspect=focus_aspect,
+                telemetry={"model": "nvidia/nemotron-3-ultra", "elapsed_ms": 120.0},
+            )
+
+    monkeypatch.setattr(compare_route, "comparison_service", FakeComparisonService())
+
+    response = client.post(
+        "/api/compare",
+        json={"document_ids": ["doc-1", "doc-2"], "focus_aspect": "Leave policies"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "# Comparison Matrix" in data["comparison_markdown"]
+    assert len(data["documents"]) == 2
+    assert data["focus_aspect"] == "Leave policies"
+    assert data["telemetry"]["model"] == "nvidia/nemotron-3-ultra"
+
+

@@ -276,3 +276,65 @@ def test_ask_uses_quality_retriever_when_available(monkeypatch):
     assert response.json()["retrieval_profile"] == "quality"
     assert response.json()["sources"][0]["filename"] == "quality.md"
     assert response.json()["citations"][0]["source_id"] == "S1"
+
+
+def test_ask_includes_dual_nemotron_telemetry(monkeypatch):
+    class FakeDense:
+        model_ready = True
+
+        def search(self, question, category=None, top_k=5):
+            return []
+
+    class FakeRouter:
+        fast_model = "nvidia/nemotron-nano"
+
+        def route_query(self, question, current_category="All", valid_categories=()):
+            from models.contracts import QueryRoutingResult
+
+            return QueryRoutingResult(
+                original_query=question,
+                refined_query="refined search query",
+                category="HR",
+                router_applied=True,
+                elapsed_ms=45.2,
+                prompt_tokens=25,
+                completion_tokens=15,
+                model="nvidia/nemotron-nano",
+            )
+
+        def filter_and_rerank_chunks(self, question, chunks, target_k=5):
+            return chunks
+
+    class FakeLLM:
+        model_name = "nvidia/nemotron-3-ultra"
+        last_generation_stats = {
+            "prompt_tokens": 120,
+            "completion_tokens": 65,
+            "total_tokens": 185,
+            "tokens_per_second": 32.5,
+        }
+
+        def generate_answer(self, question, sources, chat_history=None, retrieval_profile="fast"):
+            return "Refusal answer", 0.15, "Low"
+
+    monkeypatch.setattr(chat_route, "dense_index", FakeDense())
+    monkeypatch.setattr(chat_route, "query_router", FakeRouter())
+    monkeypatch.setattr(chat_route, "llm_service", FakeLLM())
+
+    response = client.post(
+        "/api/ask",
+        json={"question": "What is the policy?"},
+    )
+
+    assert response.status_code == 200
+    telemetry = response.json().get("telemetry")
+    assert telemetry is not None
+    assert telemetry["tier1_applied"] is True
+    assert telemetry["tier1_model"] == "nvidia/nemotron-nano"
+    assert telemetry["tier1_refined_query"] == "refined search query"
+    assert telemetry["tier1_tokens"] == 40
+    assert telemetry["tier2_model"] == "nvidia/nemotron-3-ultra"
+    assert telemetry["tier2_completion_tokens"] == 65
+    assert telemetry["tier2_tokens_per_second"] == 32.5
+    assert telemetry["estimated_credits_saved_percent"] == 72.0
+

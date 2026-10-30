@@ -90,3 +90,15 @@ class IngestionJob(BaseModel):
     status: DocumentStatus
     chunks_created: int = Field(default=0, ge=0)
     error_detail: Optional[str] = None
+
+
+class QueryRoutingResult(BaseModel):
+    original_query: str
+    refined_query: str
+    category: Optional[str] = None
+    router_applied: bool = False
+    elapsed_ms: float = 0.0
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    model: str = ""
+

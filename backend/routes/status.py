@@ -7,6 +7,7 @@ from services.runtime import (
     llm_service,
     metadata_store,
     quality_retriever,
+    query_router,
     reranker,
 )
 
@@ -27,6 +28,8 @@ async def runtime_status() -> dict:
         "llm_ready": llm_service.model_ready,
         "llm_backend": llm_service.backend,
         "llm_model": llm_service.model_name,
+        "query_router_ready": query_router.is_ready,
+        "query_router_model": query_router.fast_model,
         "document_count": len(documents),
         "indexed_document_count": sum(document.status.value == "indexed" for document in documents),
         "indexing_queue": indexing_queue.status(),

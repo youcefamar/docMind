@@ -16,6 +16,7 @@ from services.ingestion import DocumentIngestionService
 from services.llm import LLMService
 from services.metadata_store import MetadataStore
 from services.quality_retriever import QualityRetriever
+from services.query_router import QueryRouterService
 from services.reranker import LocalReranker
 from services.settings import settings
 
@@ -68,6 +69,7 @@ if dense_index is not None:
     quality_retriever = QualityRetriever(dense_index, bm25_index, reranker)
 
 llm_service = LLMService()
+query_router = QueryRouterService(llm_service)
 
 
 logger = logging.getLogger("docmind.index")

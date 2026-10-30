@@ -1,24 +1,34 @@
 # DocMind — Fast Document Search & Comparison with Nebius & Nemotron 🚀
 
 > **Hackathon Submission:** Nebius & NVIDIA Global AI Hackathon  
-> **Track:** Best Apps and Agents Track *(Alternative: Personal AI Track)*  
+> **Tracks:** Best Apps and Agents Track & Personal AI Track  
 > **Infrastructure:** Nebius Token Factory (High-Performance NVIDIA GPU Cloud)  
 > **Models:** `NVIDIA Nemotron Nano` (Tier 1 Router) & `NVIDIA Nemotron 3 Ultra` (Tier 2 Reasoning)  
-> **License:** MIT Open Source License
+> **License:** MIT Open Source License  
 
 ---
 
-## 1. What DocMind Is & Why We Built It
+## 1. What DocMind Is & Who It's For
 
-DocMind is an internal knowledge assistant for company files (PDFs, Word documents, slides, spreadsheets). Instead of manually searching through 50-page handbooks or contracts, you ask a question in plain English and get an answer backed by clickable citations that take you straight to the exact page.
+DocMind is a knowledge assistant for anyone dealing with stacks of PDFs, research papers, contracts, or course materials. Instead of skimming through 50-page files to find a single fact or figure out what changed, you ask a question and get a direct answer backed by clickable citations that open the exact page.
 
-### The Problem with Most RAG Setups
-1. **Local CPU inference is painfully slow:** In our initial prototype, running a 4B model locally on a consumer CPU took 14 to 30 seconds per question. Your laptop fans spin up, and waiting that long ruins the workflow.
-2. **Sending everything to a massive frontier model burns money:** Shoveling 30 raw text chunks into an expensive cloud model wastes API credits. Much of that text is just noise that dilutes the answer.
-3. **Single-question search isn't enough:** Real work usually involves asking what *changed* between two files — like comparing the 2025 vs 2026 employee handbook or two versions of a contract. Standard RAG systems struggle with cross-document comparisons.
+### Who Needs This?
+1. **Researchers & Academics (Personal AI):** PhD students and researchers reading dozens of arXiv or PubMed papers who need to verify findings, locate formulas, and compare competing study methodologies without hallucinations.
+2. **Teachers & Professors (Personal AI):** Educators managing textbook revisions, course notes, and syllabus changes across semesters who need to know exactly what topics were added or cut.
+3. **Teams & Enterprises (Apps and Agents):** Companies with internal policies, vendor contracts, and engineering specs who need fast search and compliance checks without leaking sensitive files to closed cloud black boxes.
 
-### How We Fixed It: Two Nemotron Models on Nebius
-We split the workload between two specialized NVIDIA Nemotron models hosted on Nebius Token Factory:
+---
+
+### The Infrastructure Dilemma (Why Most Setups Fail)
+- **Local laptop CPUs are too slow:** Most researchers, teachers, and small teams work on standard laptops. Running an LLM locally on a CPU takes 15 to 30 seconds per question. Fans spin up, battery drains, and you can't get into a flow state.
+- **Buying on-premise GPUs is too expensive:** A dedicated NVIDIA workstation or server rack costs $5,000–$20,000+. Individual researchers and mid-size companies don't have that hardware sitting under their desks.
+- **Closed cloud models lock your data and burn credits:** Blasting 30 raw text chunks to closed frontier models costs a fortune and locks your documents behind proprietary APIs that can use your data for training.
+- **Standard RAG can't compare files:** Real work is rarely just "what is X?". It's usually "what changed between Paper A and Paper B?" or "what's the difference between the 2025 and 2026 handbook?".
+
+---
+
+### How We Fixed It: Two Open Nemotron Models on Nebius
+We split the workload between two specialized NVIDIA Nemotron open-weights models hosted on Nebius Token Factory:
 
 ```mermaid
 flowchart TD
@@ -26,25 +36,29 @@ flowchart TD
         UI["Next.js 16 UI\n(Chat + Document Compare)"]
     end
 
-    subgraph Backend ["DocMind Backend"]
+    subgraph Backend ["DocMind Local Engine"]
         API["FastAPI Orchestrator"]
-        Search[("Hybrid FAISS + BM25")]
+        Search[("Hybrid FAISS + BM25\n(Runs Locally on Your Machine)")]
     end
 
-    subgraph Nebius ["Nebius Token Factory"]
-        Router["Tier 1: Nemotron Nano (~68ms)\n• Cleans up messy queries\n• Adds search keywords\n• Detects category & filters noise"]
-        Reasoning["Tier 2: Nemotron 3 Ultra (~760ms)\n• Writes grounded answer with [S1]/[S2] citations\n• Synthesizes cross-document diff tables"]
+    subgraph Nebius ["Nebius Token Factory (NVIDIA Open Models)"]
+        Router["Tier 1: Nemotron Nano (~68ms)\n• Cleans up messy questions\n• Adds search keywords\n• Filters noisy chunks (saves 72% credits)"]
+        Reasoning["Tier 2: Nemotron 3 Ultra (~760ms)\n• Writes grounded answers with [S1]/[S2] citations\n• Synthesizes cross-document diff matrices"]
     end
 
     UI -->|"User Question"| API
     API -->|"Raw query"| Router
     Router -->|"Expanded keywords"| API
-    API -->|"Hybrid search"| Search
+    API -->|"Local hybrid search"| Search
     Search -->|"Top relevant chunks"| API
-    API -->|"Clean context"| Reasoning
+    API -->|"Filtered clean context"| Reasoning
     Reasoning -->|"Streamed answer + citations"| API
     API -->|"Live response with telemetry"| UI
 ```
+
+1. **Your search index stays local:** Chunking, embedding, and hybrid search run right on your machine.
+2. **Nebius provides on-demand GPU muscle:** You get supercomputing-grade NVIDIA GPUs on demand for pennies per session, without owning expensive server hardware.
+3. **Open-weights mean data sovereignty:** Because NVIDIA Nemotron is open-source, teams can run it in a private Nebius VPC or on-premise with zero vendor lock-in.
 
 ---
 
@@ -59,25 +73,25 @@ We benchmarked the whole pipeline using `backend/scripts/benchmark_nebius.py`:
 | **Tier 2 Reasoning** | `nvidia/nemotron-3-ultra` | NVIDIA GPU (Nebius Token Factory) | 760.5 ms | 112.0 ms | 88.4 tps | Deep synthesis with strict citations |
 | **Dual-Nemotron Pipeline** | **Tier 1 + Tier 2** | **NVIDIA GPU (Nebius Token Factory)** | **828.9 ms** | **38.2 ms** | **88.4 tps** | **17.2x faster, 72% credit savings** |
 
-> **Key Takeaway:** The Dual-Nemotron pipeline cuts latency from **14.2 seconds down to 0.8 seconds** (17.2x faster). By letting Nemotron Nano filter out noisy chunks before calling the larger model, we also save **72% of inference credits**.
+> **Key Takeaway:** The Dual-Nemotron pipeline cuts latency from **14.2 seconds down to 0.8 seconds** (17.2x faster). By letting Nemotron Nano filter out noisy chunks before calling the larger model, we also save **72% of inference credits** — making high-end AI affordable on a student grant or solo budget.
 
 ---
 
 ## 3. What We Built for the Hackathon
 
 ### 1. Two-Tier Nemotron Pipeline & Live Telemetry
-- **Tier 1 (`nvidia/nemotron-nano`):** Takes whatever messy question the user types and reformulates it in under 70ms. It adds helpful synonyms for lexical BM25 search and detects the right document category (HR, Tech, Legal, Finance).
-- **Tier 2 (`nvidia/nemotron-3-ultra`):** Takes only the cleanest chunks, answers the question, and tags every fact with `[S1]`, `[S2]` citation pills. If the docs don't have the answer, it tells you directly instead of hallucinating.
+- **Tier 1 (`nvidia/nemotron-nano`):** Takes whatever question you type and reformulates it in under 70ms. It adds helpful synonyms for lexical BM25 search and detects the right document category.
+- **Tier 2 (`nvidia/nemotron-3-ultra`):** Takes only the cleanest chunks, answers the question, and tags every fact with `[S1]`, `[S2]` citation pills. If the documents don't have the answer, it tells you directly instead of hallucinating.
 - **Live Telemetry:** Every response shows the exact routing time, generation speed (tokens/sec), and estimated credit savings right in the UI.
 
 ### 2. Side-by-Side Document Comparison (`/compare`)
-- Select two or more documents from your uploaded files.
-- Type in what you want to focus on (e.g., *"remote work rules, PTO days, and equipment budgets"*).
+- Select two or more documents from your library.
+- Type in what you want to focus on (e.g., *"sample size and methodology"* between two research papers, or *"remote work and PTO"* between two company policies).
 - Nemotron 3 Ultra reads both documents and outputs:
-  - An executive summary of the update.
+  - An executive summary of what changed.
   - A side-by-side **Key Differences Matrix** table.
-  - A **Contradiction Analysis** flagging conflicting rules.
-  - A **Risk Assessment** highlighting compliance concerns.
+  - A **Contradiction Analysis** flagging conflicting statements.
+  - A **Risk / Impact Assessment** highlighting potential issues.
 
 ### 3. Graceful Offline Fallback
 - If `NEBIUS_API_KEY` isn't set, the app doesn't crash or throw unhandled errors. It automatically switches to deterministic local responses so tests and CI run cleanly without an internet connection.
@@ -91,9 +105,9 @@ In accordance with Hackathon rules regarding existing repositories:
 > *"Prior to this hackathon, DocMind was a proof-of-concept limited to slow, offline CPU generation (15–30s per question) with no way to compare documents.
 >
 > During the hackathon period, we made the following major changes:
-> 1. Moved generation from slow local CPUs to **Nebius Token Factory** on NVIDIA GPUs.
+> 1. Moved generation from slow local CPUs to **Nebius Token Factory** on NVIDIA GPUs, giving researchers and teams serverless compute without needing expensive local hardware.
 > 2. Built a **Dual-Nemotron routing pipeline**: using `Nemotron Nano` for sub-100ms query expansion and chunk filtering, and `Nemotron 3 Ultra` for deep grounded reasoning.
-> 3. Added a new **Deep Compare tool** (`POST /api/compare` and the `/compare` UI page) that generates side-by-side difference matrices and conflict checks across multiple files.
+> 3. Added a new **Deep Compare tool** (`POST /api/compare` and the `/compare` UI page) that generates side-by-side difference matrices and conflict checks across multiple files (papers, syllabi, or policies).
 > 4. Added real-time latency and token telemetry to track speed and cost savings.
 > 5. Created an automated benchmark suite (`benchmark_nebius.py`) proving a **17.2x speedup** and **72% credit savings**."*
 

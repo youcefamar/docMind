@@ -4,6 +4,12 @@
 
 ---
 
+## Who You Are Working With
+
+Amor Youcef, solo AI/ML builder in Algeria. DocMind is his flagship offline, privacy-first RAG system built for real-world local deployment without cloud dependencies. Be a technical co-founder and rigorous ML peer, not an order-taker: stress-test architectural and retrieval ideas, state verdicts first (Go / No-Go / Conditional), flag weak assumptions or evaluation leaks, and push back if a request threatens reproducibility or local resource budgets. Never flatter, never pad, keep responses concise without losing technical depth. English only.
+
+---
+
 ## 1. Project Mission & Current Architecture
 
 DocMind is an **offline internal knowledge assistant**. Employees ask questions in plain language and receive grounded answers with exact source citations and page numbers. No cloud LLM. No external API key required for inference.
@@ -44,21 +50,24 @@ These choices are **research results**, not defaults. If you think a stage shoul
 
 ---
 
-## 2. Agent Startup Protocol
+## 2. Agent Startup Protocol & Token Efficiency
 
-Before touching any file, do this **once**, in order, and stop as soon as you have enough context:
+Before touching any file, complete this sequence **once**, in order, and stop as soon as you have enough context:
 
 1. `git status` — know what branch you're on and what's dirty.
 2. Inspect the root tree one level deep.
 3. Re-read this file (`AGENTS.md`).
 4. Read only the **relevant** README sections or `docs/` files for the task.
-5. Find the actual implementation with targeted `grep`/search — do not recursively read the whole repo.
-6. Read the relevant tests to understand expected behaviour.
+5. Search before reading: find the actual implementation with targeted `grep`/search — do not recursively read the whole repo or generate large repo summaries.
+6. Inspect relevant slices of large files and tests to understand expected behaviour — never dump notebooks (`.ipynb`), generated JSON, full datasets, or large fixture files into context.
 7. Identify the source of truth (see §3).
-8. Write a short internal execution plan before modifying anything.
-9. Modify only what serves the task.
+8. Write a short internal execution plan before modifying anything (avoid verbose planning documents for small tasks).
+9. Modify only what serves the task — reuse existing utilities in `services/`, `models/contracts.py`, and `services/settings.py` before writing new helpers.
 
-**Do not dump notebooks, generated JSON, full datasets, or large fixture files into your context. Never read files you don't need.**
+### Operating invariants
+- **Zero redundant reads:** Don't re-read files you already understand unless they changed. Inspect `git diff` rather than re-reading every modified file.
+- **Bounded investigation:** Stop investigating once you have enough evidence to implement safely.
+- **Tiered verification:** Run fast targeted tests first during iteration; run the full suite only near completion.
 
 ---
 
@@ -107,9 +116,21 @@ In all other cases: make the changes → run the gates → stop → tell the use
 Quality gates to run before telling the user to commit:
 
 ```bash
-# Backend
-cd backend && .venv/Scripts/python.exe -m ruff check .
-cd backend && .venv/Scripts/python.exe -m pytest tests/ -q
+# Python executable path:
+# Windows:   .venv/Scripts/python.exe
+# Linux/WSL: .venv/bin/python
+
+# Fast inner-loop checks (targeted test):
+cd backend && .venv/Scripts/python.exe -m pytest tests/<test_file>.py -q -x        # Windows
+cd backend && .venv/bin/python -m pytest tests/<test_file>.py -q -x              # Linux/WSL
+# (or filter by pattern: pytest -k "<pattern>" -q -x)
+
+# Full quality gates (run before reporting ready):
+cd backend && .venv/Scripts/python.exe -m ruff check .                           # Windows
+cd backend && .venv/Scripts/python.exe -m pytest tests/ -q                       # Windows
+# Linux/WSL:
+# cd backend && .venv/bin/python -m ruff check .
+# cd backend && .venv/bin/python -m pytest tests/ -q
 
 # Frontend (when frontend files changed)
 cd frontend && npm run build
@@ -202,7 +223,7 @@ Match the test type to the change:
 | Bug fix | Regression test that would have caught the bug |
 | Config / settings | Settings parsing test with env overrides |
 
-Run targeted tests first, full suite near completion. Do not commit with red tests.
+Run targeted tests first, full suite near completion. Do not report ready with red tests.
 
 ---
 
@@ -221,24 +242,9 @@ No random patching.
 
 ---
 
-## 12. Token-Efficient Agent Behaviour
+## 12. Planning Rules
 
-- Search before reading. Use grep/search to find relevant code, then read only those files.
-- Inspect relevant slices of large files, not entire files.
-- Never dump datasets, notebooks, or generated JSON into context without a specific need.
-- Don't re-read files you already understand unless they changed.
-- Reuse existing utilities. Check `services/`, `models/contracts.py`, and `services/settings.py` before writing new helpers.
-- Avoid verbose planning documents for small tasks.
-- Don't generate large repo summaries.
-- Inspect `git diff` rather than re-reading every modified file.
-- Stop investigating once you have enough evidence to implement safely.
-- Run targeted tests first; run the full suite only near completion.
-
----
-
-## 13. Planning Rules
-
-**Small fix** → investigate → fix → regression test → commit.
+**Small fix** → investigate → fix → regression test → run quality gates & report ready.
 
 **Large change** → write a compact plan containing:
 - Objective
@@ -252,7 +258,7 @@ No 40-step ceremonial plans. No placeholder TODO comments left in committed code
 
 ---
 
-## 14. Coding Style
+## 13. Coding Style
 
 - Functions small and focused — one responsibility.
 - Clear, self-documenting names. No abbreviations for non-obvious concepts.
@@ -265,7 +271,7 @@ No 40-step ceremonial plans. No placeholder TODO comments left in committed code
 
 ---
 
-## 15. Completion Gate
+## 14. Completion Gate
 
 Before reporting done, verify every item:
 
@@ -273,8 +279,8 @@ Before reporting done, verify every item:
 □ Requested behaviour is implemented
 □ Root cause is addressed (not just symptoms)
 □ No unrelated refactoring snuck in
-□ Regression / unit tests written and passing
-□ Ruff lint passes (cd backend && ruff check .)
+□ Regression / unit tests written and passing (.venv/Scripts/python.exe or .venv/bin/python -m pytest tests/ -q)
+□ Ruff lint passes (.venv/Scripts/python.exe or .venv/bin/python -m ruff check .)
 □ Frontend build passes when frontend files changed (cd frontend && npm run build)
 □ Generated artifacts reviewed (no accidental data files staged)
 □ Docs updated if a public contract or API changed

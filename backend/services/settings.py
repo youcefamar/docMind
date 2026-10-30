@@ -39,6 +39,11 @@ class RuntimeSettings:
     quality_final_k: int
     quality_candidate_k: int
     suggested_prompts: tuple[str, ...]
+    llm_provider: str = "local"
+    nebius_api_key: str = ""
+    nebius_base_url: str = "https://api.studio.nebius.ai/v1"
+    nebius_reasoning_model: str = "nvidia/nemotron-3-ultra"
+    nebius_fast_model: str = "nvidia/nemotron-nano"
 
     @classmethod
     def from_environment(cls) -> "RuntimeSettings":
@@ -83,6 +88,11 @@ class RuntimeSettings:
             quality_final_k=max(1, _int_env("DOCMIND_QUALITY_FINAL_K", 5)),
             quality_candidate_k=max(1, _int_env("DOCMIND_QUALITY_CANDIDATE_K", 30)),
             suggested_prompts=prompts,
+            llm_provider=os.getenv("DOCMIND_LLM_PROVIDER", "local").strip().lower(),
+            nebius_api_key=os.getenv("NEBIUS_API_KEY", "").strip(),
+            nebius_base_url=os.getenv("NEBIUS_BASE_URL", "https://api.studio.nebius.ai/v1").strip(),
+            nebius_reasoning_model=os.getenv("NEBIUS_REASONING_MODEL", "nvidia/nemotron-3-ultra").strip(),
+            nebius_fast_model=os.getenv("NEBIUS_FAST_MODEL", "nvidia/nemotron-nano").strip(),
         )
 
 

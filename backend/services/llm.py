@@ -27,10 +27,21 @@ except ImportError:  # pragma: no cover - depends on optional native package
     Llama = None
     HAS_LLAMA_CPP = False
 
+try:
+    from openai import OpenAI
+
+    HAS_OPENAI = True
+except ImportError:  # pragma: no cover - depends on optional package
+    OpenAI = None
+    HAS_OPENAI = False
+
 
 MODEL_PATH_ENV = "DOCMIND_LLM_MODEL_PATH"
 LEGACY_MODEL_PATH_ENV = "GGUF_MODEL_PATH"
 DEFAULT_REFUSAL = "I don't know based on the provided documents."
+DEFAULT_NEBIUS_BASE_URL = "https://api.studio.nebius.ai/v1"
+DEFAULT_NEBIUS_REASONING_MODEL = "nvidia/nemotron-3-ultra"
+DEFAULT_NEBIUS_FAST_MODEL = "nvidia/nemotron-nano"
 _CITATION_PATTERN = re.compile(r"\[S(\d+)\]", re.IGNORECASE)
 _GROUPED_CITATION_PATTERN = re.compile(
     r"\[((?:S[1-9][0-9]*)(?:\s*,\s*S[1-9][0-9]*)+)\]",
@@ -151,21 +162,73 @@ def citation_is_supported(answer: str, citation: Citation) -> bool:
 
 
 class LLMService:
-    """CPU-compatible local Qwen runtime with deterministic grounding rules."""
+    """Hybrid LLM service supporting Nebius Token Factory (NVIDIA Nemotron) and local Qwen."""
 
-    def __init__(self, model_path: Optional[str] = None, auto_load: bool = True):
+    def __init__(
+        self,
+        model_path: Optional[str] = None,
+        auto_load: bool = True,
+        provider: Optional[str] = None,
+    ):
+        self.provider = (provider or os.getenv("DOCMIND_LLM_PROVIDER", "local")).strip().casefold()
+        self.nebius_api_key = os.getenv("NEBIUS_API_KEY", "").strip()
+        self.nebius_base_url = os.getenv("NEBIUS_BASE_URL", DEFAULT_NEBIUS_BASE_URL).strip()
+        self.nebius_reasoning_model = os.getenv("NEBIUS_REASONING_MODEL", DEFAULT_NEBIUS_REASONING_MODEL).strip()
+        self.nebius_fast_model = os.getenv("NEBIUS_FAST_MODEL", DEFAULT_NEBIUS_FAST_MODEL).strip()
+        self.nebius_client: Optional[OpenAI] = None
+
         self.model_path = model_path or self._resolve_model_path()
         self.local_llm = None
-        self.model_name = "unconfigured-local-model"
+        self.model_name = "unconfigured-model"
         self.model_ready = False
         self.backend = "extractive-fallback"
         self.last_generation_stats: dict[str, object] = {
             "completion_tokens": None,
+            "prompt_tokens": None,
+            "total_tokens": None,
             "time_to_first_token_ms": None,
             "tokens_per_second": None,
         }
         if auto_load:
-            self._init_local_model()
+            if self.provider == "nebius":
+                self._init_nebius_client()
+            else:
+                self._init_local_model()
+
+    def _init_nebius_client(self) -> None:
+        """Initialize the OpenAI-compatible client for Nebius Token Factory."""
+
+        self.nebius_client = None
+        self.model_ready = False
+        self.backend = "extractive-fallback"
+        self.model_name = self.nebius_reasoning_model or DEFAULT_NEBIUS_REASONING_MODEL
+
+        if not HAS_OPENAI:
+            logger.warning("[LLM] openai package is not installed; falling back to extractive provider")
+            return
+
+        if not self.nebius_api_key:
+            logger.info("[LLM] NEBIUS_API_KEY is not set; falling back to extractive provider")
+            return
+
+        try:
+            timeout = float(os.getenv("DOCMIND_NEBIUS_TIMEOUT", "60.0"))
+            self.nebius_client = OpenAI(
+                base_url=self.nebius_base_url,
+                api_key=self.nebius_api_key,
+                timeout=timeout,
+            )
+            self.backend = "nebius-token-factory"
+            self.model_ready = True
+            logger.info(
+                "[LLM] Nebius Token Factory ready ✅ model=%s base_url=%s",
+                self.model_name,
+                self.nebius_base_url,
+            )
+        except Exception as error:
+            logger.exception("[LLM] Failed to initialize Nebius client: %s", error)
+            self.backend = "extractive-fallback"
+            self.model_ready = False
 
     def _resolve_model_path(self) -> str:
         """Resolve a local GGUF path without downloading or contacting a service."""
@@ -224,6 +287,8 @@ class LLMService:
         generation_started_at = time.perf_counter()
         self.last_generation_stats = {
             "completion_tokens": None,
+            "prompt_tokens": None,
+            "total_tokens": None,
             "time_to_first_token_ms": None,
             "tokens_per_second": None,
         }
@@ -237,7 +302,38 @@ class LLMService:
             return DEFAULT_REFUSAL, round(max_similarity, 2), "Low"
 
         messages = self._build_messages(question, sources, chat_history or [])
-        if self.local_llm is not None:
+        answer = ""
+
+        if self.provider == "nebius" and self.nebius_client is not None:
+            try:
+                response = self.nebius_client.chat.completions.create(
+                    model=self.nebius_reasoning_model,
+                    messages=messages,
+                    temperature=float(os.getenv("DOCMIND_LLM_TEMPERATURE", "0.1")),
+                    max_tokens=int(os.getenv("DOCMIND_LLM_MAX_TOKENS", "1024")),
+                )
+                choice = response.choices[0]
+                answer = (choice.message.content or "").strip()
+                usage = getattr(response, "usage", None)
+                completion_tokens = getattr(usage, "completion_tokens", None) if usage else None
+                prompt_tokens = getattr(usage, "prompt_tokens", None) if usage else None
+                total_tokens = getattr(usage, "total_tokens", None) if usage else None
+                elapsed_seconds = time.perf_counter() - generation_started_at
+                self.last_generation_stats = {
+                    "completion_tokens": completion_tokens,
+                    "prompt_tokens": prompt_tokens,
+                    "total_tokens": total_tokens,
+                    "time_to_first_token_ms": None,
+                    "tokens_per_second": (
+                        round(completion_tokens / elapsed_seconds, 2)
+                        if isinstance(completion_tokens, int) and elapsed_seconds > 0
+                        else None
+                    ),
+                }
+            except Exception as error:
+                logger.exception("[LLM] Nebius generation failed: %s; using fallback", error)
+                answer = self._generate_fallback_answer(sources)
+        elif self.local_llm is not None:
             try:
                 response = self.local_llm.create_chat_completion(
                     messages=messages,
@@ -250,6 +346,8 @@ class LLMService:
                 elapsed_seconds = time.perf_counter() - generation_started_at
                 self.last_generation_stats = {
                     "completion_tokens": completion_tokens,
+                    "prompt_tokens": usage.get("prompt_tokens"),
+                    "total_tokens": usage.get("total_tokens"),
                     "time_to_first_token_ms": None,
                     "tokens_per_second": (
                         round(completion_tokens / elapsed_seconds, 2)
@@ -266,7 +364,7 @@ class LLMService:
         raw_answer = answer
         answer = strip_thinking_content(answer)
         if answer != raw_answer:
-            logger.info("[LLM] removed hidden think content from local model output")
+            logger.info("[LLM] removed hidden think content from model output")
 
         if not answer or self._is_refusal(answer):
             return DEFAULT_REFUSAL, 0.15, "Low"

@@ -165,3 +165,131 @@ def test_local_service_accepts_rrf_quality_scores_with_profile_gate(monkeypatch)
     assert "Remote work is allowed" in answer
     assert score == 0.02
     assert label == "Medium"
+
+
+def test_nebius_service_initialization_with_api_key(monkeypatch):
+    monkeypatch.setenv("DOCMIND_LLM_PROVIDER", "nebius")
+    monkeypatch.setenv("NEBIUS_API_KEY", "test_nebius_token_123")
+    monkeypatch.setenv("NEBIUS_REASONING_MODEL", "nvidia/nemotron-3-ultra")
+
+    service = LLMService(auto_load=True)
+
+    assert service.provider == "nebius"
+    assert service.backend == "nebius-token-factory"
+    assert service.model_ready is True
+    assert service.model_name == "nvidia/nemotron-3-ultra"
+    assert service.nebius_client is not None
+
+
+def test_nebius_service_fallback_when_api_key_is_missing(monkeypatch):
+    monkeypatch.setenv("DOCMIND_LLM_PROVIDER", "nebius")
+    monkeypatch.delenv("NEBIUS_API_KEY", raising=False)
+
+    service = LLMService(auto_load=True)
+
+    assert service.provider == "nebius"
+    assert service.backend == "extractive-fallback"
+    assert service.model_ready is False
+    assert service.nebius_client is None
+
+    # Verify fallback generation works seamlessly without keys
+    answer, score, label = service.generate_answer("Can I work remotely?", [_source()])
+    assert "Remote work is allowed" in answer
+    assert "[S1]" in answer
+    assert score == 0.95
+    assert label == "High"
+
+
+def test_nebius_service_generate_answer_success():
+    class FakeUsage:
+        completion_tokens = 42
+        prompt_tokens = 120
+        total_tokens = 162
+
+    class FakeMessage:
+        content = "Remote work is permitted under policy [S1]."
+
+    class FakeChoice:
+        message = FakeMessage()
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+        usage = FakeUsage()
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            return FakeResponse()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeOpenAIClient:
+        chat = FakeChat()
+
+    service = LLMService(auto_load=False, provider="nebius")
+    service.nebius_client = FakeOpenAIClient()
+    service.model_ready = True
+    service.backend = "nebius-token-factory"
+
+    answer, score, label = service.generate_answer("Can I work remotely?", [_source()])
+
+    assert answer == "Remote work is permitted under policy [S1]."
+    assert score == 0.95
+    assert label == "High"
+    assert service.last_generation_stats["completion_tokens"] == 42
+    assert service.last_generation_stats["prompt_tokens"] == 120
+    assert service.last_generation_stats["total_tokens"] == 162
+    assert service.last_generation_stats["tokens_per_second"] is not None
+
+
+def test_nebius_service_strips_thinking_tags():
+    class FakeMessage:
+        content = "<think>evaluating policy document</think>Remote work is permitted under policy [S1]."
+
+    class FakeChoice:
+        message = FakeMessage()
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+        usage = None
+
+    class FakeOpenAIClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kwargs):
+                    return FakeResponse()
+
+    service = LLMService(auto_load=False, provider="nebius")
+    service.nebius_client = FakeOpenAIClient()
+    service.model_ready = True
+
+    answer, _score, _label = service.generate_answer("Can I work remotely?", [_source()])
+
+    assert answer == "Remote work is permitted under policy [S1]."
+    assert "think" not in answer
+
+
+def test_nebius_service_gracefully_handles_api_exception():
+    class ExplodingCompletions:
+        def create(self, **kwargs):
+            raise RuntimeError("Nebius Token Factory endpoint unreachable")
+
+    class FakeChat:
+        completions = ExplodingCompletions()
+
+    class FakeOpenAIClient:
+        chat = FakeChat()
+
+    service = LLMService(auto_load=False, provider="nebius")
+    service.nebius_client = FakeOpenAIClient()
+    service.model_ready = True
+
+    # Generation must not raise; it must fallback gracefully to extractive
+    answer, score, label = service.generate_answer("Can I work remotely?", [_source()])
+
+    assert "Remote work is allowed" in answer
+    assert "[S1]" in answer
+    assert score == 0.95
+    assert label == "High"
+

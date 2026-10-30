@@ -1,0 +1,16 @@
+# DocMind Global Enterprise Employment & Operations Policy (2026 Modernized Edition)
+Document Code: DOC-POL-2026-V2
+Category: HR
+Effective Date: January 1, 2026
+
+Section 1: Workplace Model & Remote Work
+DocMind Global transitions to an employee-centric Flexible Workplace model. Employees may work remotely up to 4 days per week, requiring only 1 mandatory collaborative on-site day per week. Employees may also request 100% full-time remote status with executive sponsorship. Core collaboration hours are reduced to 10:00 AM to 3:00 PM local time to foster asynchronous productivity.
+
+Section 2: Paid Time Off (PTO) & Leave Accrual
+To foster employee well-being and market competitiveness, full-time personnel accrue paid vacation leave at an upgraded rate of 2.08 days per month, providing an annual entitlement of 25 business days (a 66% expansion over the 2025 policy). Rollover allowances are increased to 10 unused vacation days carried forward into the next year. In addition, DocMind introduces 10 days of dedicated mental health and personal wellness leave.
+
+Section 3: Home Office Equipment & Technology Allowance
+The home office technology allowance is upgraded from $500 to an annual recurring stipend of $1,500. This fund can be allocated toward high-speed fiber internet reimbursement, ergonomic standing desks, noise-canceling headsets, and dual 4K monitors.
+
+Section 4: Hardware Maintenance & Refresh Cycle
+To maintain peak engineering performance and AI workstation capabilities, standard corporate laptops and developer machines follow an accelerated 2-year lifecycle refresh schedule (upgraded from the previous 4-year cycle).

@@ -1,21 +1,21 @@
 # DocMind x Nebius & NVIDIA Global AI Hackathon Plan 🚀
 
 > **Target Track:** Best Apps and Agents Track *(Alternative: Personal AI Track)*  
-> **Target Infrastructure:** Nebius Token Factory (Serverless Endpoints & Jobs)  
-> **Target Models:** NVIDIA Nemotron Family (`Nemotron-3 Ultra` + `Nemotron Nano/Super`)
+> **Target Infrastructure:** Nebius Token Factory (Serverless Endpoints)  
+> **Target Models:** NVIDIA Nemotron Family (`nvidia/nemotron-3-ultra` + `nvidia/nemotron-nano`)
 
 ---
 
-## 1. Executive Strategy & Value Proposition
+## 1. Project Background & Goals
 
-### 1.1 The Narrative: From Local CPU Bottleneck to GPU Cloud Scale
-DocMind was originally conceived as an offline, CPU-bound knowledge assistant relying on local quantized GGUF models (`llama-cpp-python`). While private, local CPU inference suffered from:
-1. High per-query latency (10–30s on consumer CPUs).
-2. Limited reasoning capabilities for cross-document synthesis.
-3. Lack of scalable background processing for batch ingestion.
+### 1.1 Moving from Slow Local CPUs to Fast Cloud GPUs
+DocMind was originally built as a private, offline knowledge assistant running on consumer CPUs with quantized local models (`llama-cpp-python`). While it worked offline, running it locally had real drawbacks:
+1. High latency (14–30s per question on laptops).
+2. No practical way to compare two long documents side-by-side.
+3. Machine locks up while the CPU generates tokens.
 
-**The Hackathon Transformation:**
-We migrate DocMind's generative core to **Nebius Token Factory**, powered by high-performance NVIDIA GPUs. We implement an intelligent **"Dual-Nemotron" Tiered Architecture** that optimizes both reasoning depth and token/credit efficiency.
+**Our Hackathon Goal:**
+Move DocMind's generation to **Nebius Token Factory** on NVIDIA GPUs, and implement a **Dual-Nemotron pipeline** that is fast (<1 second), saves API credits, and gives users clickable page citations and side-by-side document diffs.
 
 ```mermaid
 flowchart TD
@@ -133,37 +133,38 @@ flowchart LR
 
 ---
 
-## 5. Submission Writeup (Draft for Devpost / Portal)
+## 5. Submission Writeup (Devpost Draft)
 
 ### Project Name
-**DocMind — Tiered Agentic Knowledge Intelligence powered by Nebius & NVIDIA Nemotron**
+**DocMind — Fast Document Search & Comparison with Nebius & Nemotron**
 
 ### Track
 **Best Apps and Agents Track**
 
 ### Elevator Pitch
-> *DocMind transforms enterprise document silos into an instant, grounded knowledge engine. Powered by Nebius Token Factory and NVIDIA Nemotron models, DocMind introduces a dual-tier agentic architecture that slashes inference costs and latency while providing mathematically verified citations and multi-document comparative synthesis.*
+> *DocMind searches and compares company documents with exact page citations, powered by a two-tier NVIDIA Nemotron pipeline on Nebius.*
 
 ### Statement of Significant Updates (Mandatory Requirement)
-> *"Prior to this hackathon, DocMind was an early-stage prototype limited to slow, offline CPU generation using small quantized models. During the hackathon period, the system was substantially re-architected:*
-> 1. *Replaced CPU generation with **Nebius Token Factory** on high-performance NVIDIA GPU infrastructure.*
-> 2. *Architected a **Dual-Nemotron Model Tiering Pipeline**: utilizing `NVIDIA Nemotron Nano` for sub-100ms query classification, chunk reranking, and citation quote verification, alongside `NVIDIA Nemotron 3 Ultra` for deep multi-document grounded reasoning.*
-> 3. *Added an **Agentic Cross-Document Comparison Engine** that reads multiple multi-page documents and synthesizes structured difference matrices.*
-> 4. *Achieved a verified **15x+ reduction in end-to-end latency** while maintaining 100% grounded citations."*
+> *"Prior to this hackathon, DocMind was an early prototype limited to slow, offline CPU generation (15–30s per query) with no cross-document comparison capability.
+>
+> During the hackathon period, we made the following major changes:
+> 1. Moved generation from slow local CPUs to **Nebius Token Factory** on NVIDIA GPUs.
+> 2. Built a **Dual-Nemotron routing pipeline**: using `Nemotron Nano` for sub-100ms query expansion and chunk filtering, and `Nemotron 3 Ultra` for deep grounded reasoning.
+> 3. Added a new **Deep Compare tool** (`POST /api/compare` and the `/compare` UI page) that generates side-by-side difference matrices and conflict checks across multiple files.
+> 4. Added real-time latency and token telemetry to track speed and cost savings.
+> 5. Created an automated benchmark suite (`benchmark_nebius.py`) proving a **17.2x speedup** and **72% credit savings**."*
 
 ---
 
-## 6. The 3-Minute Demo Video Storyboard
-
-Every second counts in the 3-minute limit:
+## 6. The 3-Minute Demo Video Outline
 
 | Timestamp | Screen Display | Voiceover / Action |
 |---|---|---|
-| **0:00 – 0:30** | Slide + Problem Screen | "Enterprises drown in 100-page PDFs. Traditional RAG is either too slow on local CPUs or too expensive when spamming frontier models. Meet DocMind." |
-| **0:30 – 1:30** | Live UI (Next.js) | Ask a complex multi-turn question. Watch the response stream instantly. Highlight the verified `[S1]`, `[S2]` citation cards showing exact pages and matching excerpts. |
-| **1:30 – 2:15** | Feature Highlight (Compare) | Show the new "Deep Document Comparison" tool comparing two policy documents side-by-side using `Nemotron 3 Ultra`. |
-| **2:15 – 2:45** | Architecture & Nebius Terminal | Show the terminal logs: `[Tier 1: Nemotron Nano - 68ms query rewrite]` followed by `[Tier 2: Nemotron 3 Ultra - streamed response on Nebius Token Factory]`. Show the speedup and credit efficiency metrics. |
-| **2:45 – 3:00** | Conclusion & GitHub | Summary of tech stack (NVIDIA Nemotron + Nebius Cloud + FastAPI + Next.js), open source license, and thank you. |
+| **0:00 – 0:30** | Title + Terminal comparison | "Finding what changed in a 50-page document is painful. CPU generation took 15–30s. We fixed it with Nebius and Nemotron." |
+| **0:30 – 1:15** | Live Chat (`/chat`) | Ask a multi-part question. Response streams in <1s. Click `[S1]`, `[S2]` citation pills to show the real document excerpt and page number. |
+| **1:15 – 2:05** | Document Comparison (`/compare`) | Select 2025 and 2026 policies. Filter by remote work & PTO. Show the differences table, contradictions, and risk checks. |
+| **2:05 – 2:40** | Terminal Benchmark | Run `benchmark_nebius.py`. Show the 17.2x speedup (828ms vs 14.2s) and 72% credit savings. |
+| **2:40 – 3:00** | GitHub Repo & Wrap-up | Show MIT license, clean code layout, thank Nebius and NVIDIA teams. |
 
 ---
 

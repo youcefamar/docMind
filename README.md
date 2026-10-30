@@ -1,12 +1,13 @@
 # DocMind — Internal Knowledge Assistant 🧠📄
 
-> **Problem**: Employees waste hours searching through bulky PDFs.  
-> **Solution**: DocMind allows employees to ask questions in plain natural language and receive instant, grounded answers accompanied by exact source document citations and page numbers.
+> **Problem**: Finding answers across dozens of company PDFs, contracts, and spreadsheets takes way too long.  
+> **Solution**: DocMind lets you ask questions in plain English and returns direct answers backed by clickable citations that point to the exact document and page number.
 
-> **Current implementation status:** Research v1 and backend milestones P1–P5
-> are implemented. The backend ingests local documents, synchronizes a managed
-> knowledge folder, retrieves with Fast or Quality profiles, and generates
-> locally with grounded citation validation.
+> ⚡ **Hackathon Submission (Nebius & NVIDIA):** We re-architected DocMind to run on **Nebius Token Factory** with a **Dual-Nemotron pipeline** (`Nemotron Nano` router + `Nemotron 3 Ultra` reasoning). It delivers a **17.2x speedup** (down to 0.8s), cuts credit usage by 72%, and adds side-by-side document comparison (`/compare`). See [NEBIUS_NVIDIA_README.md](NEBIUS_NVIDIA_README.md) for benchmark numbers and architecture details.
+
+> **Current implementation status:** Ingests local documents, synchronizes a managed
+> knowledge folder, retrieves with Fast (FAISS) or Quality (hybrid FAISS + BM25) profiles,
+> supports offline CPU fallback, and runs high-speed inference on Nebius Token Factory with verified citations.
 
 ---
 
@@ -14,14 +15,14 @@
 
 | Layer | Tool | Rationale |
 |---|---|---|
-| **Frontend** | Next.js 16 (App Router) + TypeScript 6 + Tailwind CSS + NextAuth.js | Modern, responsive, enterprise-ready UI with custom design tokens & authentication |
-| **Backend** | FastAPI (Python 3.11) | High-performance async API framework for chunking, embedding & retrieval |
-| **LLM Inference** | Local Qwen3-4B target | Offline CPU-compatible generation (P4) |
-| **Embeddings** | Qwen3-Embedding-0.6B target | Frozen multilingual research winner (P2) |
-| **Metadata** | SQLite | Local document, job, block, and chunk persistence (P1) |
-| **Retrieval** | FAISS + BM25 target | Dense Fast mode and hybrid Quality mode (P2/P3) |
+| **Frontend** | Next.js 16 (App Router) + TypeScript 6 + Tailwind CSS + NextAuth.js | Clean UI with interactive chat, citation cards, and document comparison |
+| **Backend** | FastAPI (Python 3.11) | Async API framework for chunking, embedding, retrieval, and routing |
+| **LLM Inference** | Nebius Token Factory (`nvidia/nemotron-3-ultra` & `nemotron-nano`) + Local Qwen3-4B | Dual-Nemotron cloud GPU inference with offline CPU fallback |
+| **Embeddings** | Qwen3-Embedding-0.6B | Local multilingual embeddings (1024-dim) |
+| **Metadata** | SQLite | Local document, job, block, and chunk persistence |
+| **Retrieval** | FAISS + BM25 | Fast dense retrieval + hybrid Quality search with RRF |
 | **Extraction** | `pypdf`, `python-docx`, `python-pptx`, `openpyxl` | Page, slide, sheet, and text extraction |
-| **Infra & DevOps** | Docker + Docker Compose | One-command full-stack container deployment |
+| **Infra & DevOps** | Docker + Docker Compose | Full-stack container deployment |
 
 ---
 

@@ -28,50 +28,49 @@ STORYBOARD_SEGMENTS = [
     (
         "scene1_intro",
         (
-            "Enterprises are drowning in thousands of multi-page PDFs, policy manuals, and contracts. "
-            "Traditional RAG systems face a painful dilemma: running locally on CPUs is painfully slow, "
-            "taking 15 to 30 seconds per question, while spamming monolithic cloud frontier models burns credits and adds high latency. "
-            "Meet DocMind: re-engineered for the Nebius and NVIDIA Hackathon with a novel Dual-Nemotron Tiered Architecture powered by Nebius Token Factory."
+            "If you've ever had to dig through a 50-page company policy or figure out what changed between two versions of a contract, "
+            "you know how painful it is. Running an LLM locally on a laptop takes 15 to 30 seconds for a single question. "
+            "But sending everything to a massive frontier model burns through API credits and still brings back noisy text. "
+            "For this hackathon, we rebuilt DocMind to fix both problems: using a two-tier NVIDIA Nemotron pipeline hosted on Nebius Token Factory."
         ),
     ),
     (
         "scene2_chat",
         (
-            "Here is DocMind in action. When an employee asks a natural language question, our Tier 1 router, "
-            "powered by NVIDIA Nemotron Nano, rewrites the query in under 70 milliseconds, injecting optimal search keywords and routing to the right department index. "
-            "Our hybrid FAISS and BM25 search retrieves the most relevant context, and NVIDIA Nemotron 3 Ultra synthesizes an instant, grounded response. "
-            "Notice the citation tags S1 and S2. Every claim is mathematically verified against the source text with exact page provenance: "
-            "no hallucinations, no invented facts."
+            "Here's DocMind in action. When I ask a question, our Tier 1 router, powered by NVIDIA Nemotron Nano, "
+            "cleans up the query in about 68 milliseconds. It adds the best keywords for our hybrid FAISS and BM25 search. "
+            "Then, NVIDIA Nemotron 3 Ultra synthesizes a clear, grounded answer. "
+            "Notice these citation tags: S1 and S2. If you click one, it opens the exact document and page number where that answer came from. "
+            "If the answer isn't in the docs, DocMind tells you directly instead of guessing or making things up."
         ),
     ),
     (
         "scene3_compare",
         (
-            "Beyond single-document questions, enterprise teams need cross-document intelligence. "
-            "Welcome to our new Deep Document Comparison Engine. "
-            "Here, we select our 2025 and 2026 enterprise policies and ask DocMind to evaluate remote work, PTO, and equipment stipends. "
-            "In seconds, Nemotron 3 Ultra reads both multi-page documents and builds a complete executive comparison matrix. "
-            "It highlights that remote flexibility expanded from 2 days to 4 days, PTO grew by 66 percent to 25 days, and equipment stipends upgraded to $1,500 annually. "
-            "It even flags timeline contradictions and assigns risk levels for HR compliance."
+            "Now here's our favorite new feature: Deep Compare. "
+            "Instead of manually reading two versions of an employee policy, I can select our 2025 and 2026 files, "
+            "type what I want to check—like remote work, PTO, and equipment stipends—and hit Compare. "
+            "In seconds, Nemotron 3 Ultra reads both documents and builds a side-by-side comparison matrix: "
+            "It spots that remote work expanded from 2 days to 4 days, vacation jumped from 15 to 25 days, and the home office stipend tripled to $1,500. "
+            "It even flags conflicting deadlines so HR and legal don't get caught off guard."
         ),
     ),
     (
         "scene4_benchmark",
         (
-            "Under the hood, this speed and intelligence is enabled by Nebius Token Factory. "
-            "Our integrated benchmark demonstrates a 17.2x reduction in end-to-end latency compared to local CPU baselines. "
-            "Furthermore, by offloading query reformulation and chunk noise reduction to the sub-100 millisecond Nemotron Nano, "
-            "we achieve 72 percent credit savings compared to sending raw bloated context to frontier models. "
-            "Judges can see real-time tokens per second and credit telemetry directly in our API responses."
+            "Under the hood, all of this speed comes from Nebius Token Factory. "
+            "On our benchmarks, this two-tier setup gave us a 17.2x speedup compared to running locally on CPU, "
+            "dropping response times from 14 seconds down to 800 milliseconds. "
+            "Even better: because Nemotron Nano filters out noisy chunks before calling the bigger model, we cut credit consumption by 72%. "
+            "You can even see real-time latency and tokens-per-second directly in the API telemetry."
         ),
     ),
     (
         "scene5_conclusion",
         (
-            "DocMind is 100 percent open source under the MIT License, fully containerized, and built on FastAPI and Next.js 16. "
-            "By pairing NVIDIA's state-of-the-art open models with Nebius Token Factory's cloud GPU performance, "
-            "DocMind delivers the future of enterprise knowledge intelligence: fast, grounded, and cost-efficient. "
-            "Thank you to the Nebius and NVIDIA teams!"
+            "DocMind is 100 percent open source under the MIT License, built on FastAPI and Next.js 16. "
+            "By pairing NVIDIA's open models with Nebius Token Factory's cloud GPUs, we got enterprise search that's fast, cost-efficient, and easy to trust. "
+            "Huge thanks to the Nebius and NVIDIA teams for hosting this hackathon!"
         ),
     ),
 ]

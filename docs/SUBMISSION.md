@@ -1,76 +1,95 @@
 # Devpost Submission Kit: DocMind
 
-> **Project Name:** DocMind — Tiered Agentic Knowledge Intelligence powered by Nebius & NVIDIA Nemotron  
-> **Tagline:** Grounded enterprise knowledge assistant with dual-tier Nemotron routing, instant verified citations, and deep cross-document comparison on Nebius Token Factory.  
+> **Project Name:** DocMind — Fast Document Search & Comparison with Nebius & Nemotron  
+> **Tagline:** Search and compare company documents with exact page citations and sub-second answers using a two-tier NVIDIA Nemotron setup on Nebius.  
 > **Track:** Best Apps and Agents Track *(Alternative: Personal AI Track)*  
 > **Repository:** https://github.com/Amar-001/docMind  
 > **License:** MIT License  
 
 ---
 
-## 1. Elevator Pitch (140 Characters)
-> *DocMind turns enterprise document silos into an instant, grounded knowledge engine powered by Nebius Token Factory & NVIDIA Nemotron models.*
+## 1. Elevator Pitch (Under 140 Characters)
+> *DocMind searches and compares company documents with exact page citations, powered by a two-tier NVIDIA Nemotron pipeline on Nebius.*
 
 ---
 
 ## 2. Inspiration
-Enterprise teams lose hours digging through 100-page policy manuals, contracts, and internal guidelines. Traditional local RAG on consumer CPUs takes 15–30 seconds per question, while sending every raw query to monolithic frontier models is prohibitively expensive and drains cloud credits rapidly. 
+If you've ever had to find a specific policy inside a 60-page PDF handbook, or figure out what changed between two versions of an NDA, you know how tedious it is.
 
-We set out to build an architecture that solves this trilemma: **blazing speed, credit-efficient inference, and zero hallucinations with mathematical citation provenance.**
+We initially built an offline prototype of DocMind running on consumer laptops. But waiting 15 to 30 seconds for a single answer on a CPU was agonizing. At the same time, we didn't want to just blast every user query into an expensive frontier cloud model — that burns API credits fast and still retrieves noisy, unverified paragraphs.
+
+We wanted something fast, cost-conscious, and honest:
+1. Answers in under a second.
+2. Every fact backed by a clickable citation that shows the real document name and page number.
+3. A tool that actually compares two documents and tells you what changed, instead of making you flip tabs back and forth.
 
 ---
 
 ## 3. What It Does
-DocMind is a full-stack, enterprise-grade knowledge assistant that ingests diverse company documents (PDF, DOCX, PPTX, XLSX, TXT, MD) and provides:
 
-1. **Grounded Question Answering with Mathematical Citations:**
-   - Every factual assertion cites exact source labels (`[S1]`, `[S2]`).
-   - Clicking a citation card opens verified source excerpts with exact page and section provenance.
-   - Strict refusal triggers prevent hallucinations when context is insufficient.
+DocMind ingests company documents (PDFs, Word docs, PowerPoint presentations, Excel sheets, text files) and gives teams two main superpowers:
 
-2. **The "Dual-Nemotron" Tiered Inference Architecture:**
-   - **Tier 1 (NVIDIA Nemotron Nano):** Sub-100ms query classification, keyword reformulation for hybrid FAISS/BM25 retrieval, and candidate chunk noise reduction.
-   - **Tier 2 (NVIDIA Nemotron 3 Ultra):** High-context grounded synthesis, deep cross-document reasoning, and citation validation.
-   - Delivers a verified **17.2x speedup** over CPU execution and **72% credit savings** via context optimization.
+### 1. Grounded Search with Page-Level Proof
+- Ask questions in plain English (e.g., *"How many vacation days do I get in my first year?"*).
+- Answers stream in right away with clickable `[S1]`, `[S2]` citation pills.
+- Clicking a pill pops open the exact excerpt with its document filename and page number.
+- If the documents don't have the answer, DocMind clearly says so instead of guessing or hallucinating.
 
-3. **Agentic "Deep Compare" Cross-Document Synthesis:**
-   - Dedicated UI tab at `/compare` allowing users to select multiple documents and focus on specific clauses (e.g., comparing 2025 vs. 2026 HR policies or vendor contracts).
-   - Generates an executive-level **Key Differences Matrix**, **Contradiction Analysis**, and **Risk/Compliance Assessment**.
+### 2. The Two-Tier Nemotron Architecture
+- **Tier 1 (NVIDIA Nemotron Nano):** In ~68 milliseconds, this tiny model cleans up the user's question, adds helpful synonyms for lexical BM25 search, and tags the document category.
+- **Tier 2 (NVIDIA Nemotron 3 Ultra):** Reads only the most relevant candidate chunks, synthesizes a clear answer, and verifies every citation.
+- By filtering out context noise early with Tier 1, we cut API credit usage by **72%** and dropped total latency from 14.2s down to **0.8s** (a **17.2x speedup**).
+
+### 3. Deep Document Comparison (`/compare`)
+- Select two or more documents from your library (e.g., your 2025 vs 2026 HR policy).
+- Tell it what you care about (e.g., *"remote work, vacation rollover, and hardware stipends"*).
+- In seconds, it produces:
+  - An executive summary of the changes.
+  - A clean side-by-side **Differences Matrix** table.
+  - A **Contradiction Check** identifying conflicting clauses.
+  - A **Risk Assessment** for legal and compliance teams.
 
 ---
 
 ## 4. How We Built It
-- **Infrastructure & Models:** **Nebius Token Factory** OpenAI-compatible serverless endpoints powering `nvidia/nemotron-nano` and `nvidia/nemotron-3-ultra`.
-- **Backend Orchestrator:** **FastAPI**, **Python 3.11**, and **Pydantic v2** shared contracts.
-- **Retrieval Engine:** Hybrid pipeline combining **FAISS** dense cosine similarity with **BM25** lexical ranking and Reciprocal Rank Fusion (RRF).
-- **Frontend Application:** **Next.js 16 App Router**, **TypeScript**, and **Tailwind CSS**.
-- **Resilient Fallback:** Fully functional offline mode for CI and local unit tests when API keys are unconfigured.
+
+- **Inference & GPUs:** **Nebius Token Factory** running serverless NVIDIA open models (`nvidia/nemotron-nano` and `nvidia/nemotron-3-ultra`).
+- **Backend:** **FastAPI**, **Python 3.11**, and **Pydantic v2** for clean data contracts.
+- **Retrieval Engine:** Hybrid pipeline combining **FAISS** (dense cosine similarity) with **BM25** (lexical keyword ranking) merged via Reciprocal Rank Fusion (RRF).
+- **Frontend:** **Next.js 16 (App Router)**, **TypeScript**, and **Tailwind CSS**.
+- **Resilience:** Built-in offline fallback so local unit tests and CI workflows always pass even without an active Nebius API key.
 
 ---
 
 ## 5. Mandatory Statement of Significant Updates
-In accordance with Hackathon Official Rules regarding existing projects:
 
-> *"Prior to this hackathon, DocMind was an early-stage prototype restricted to local CPU inference with small quantized models, suffering from high latency (15–30s/query) and an inability to perform cross-document comparative analysis.*
+In accordance with Hackathon rules regarding existing projects:
+
+> *"Prior to this hackathon, DocMind was an early prototype limited to slow, offline CPU generation (15–30s per query) with no cross-document comparison capability.
 >
-> *During the Hackathon Period, the following substantial innovations were implemented:*
-> 1. *Architected and deployed the **Dual-Nemotron Tiered Architecture** on **Nebius Token Factory**, achieving sub-100ms routing on `Nemotron Nano` and high-context reasoning on `Nemotron 3 Ultra`.*
-> 2. *Created the **Agentic Deep Compare Engine** (`POST /api/compare` & `/compare` UI tab) for multi-document difference matrix synthesis and risk evaluation.*
-> 3. *Engineered full **Token & Latency Telemetry Tracking** measuring TTFT, TPS, and credit savings.*
-> 4. *Built the **Nebius Benchmarking Suite** (`benchmark_nebius.py`), demonstrating verified **17.2x latency speedup** and **72% credit savings** over local CPU execution."*
+> During the hackathon period, we made the following major changes:
+> 1. Moved generation from slow local CPUs to **Nebius Token Factory** on NVIDIA GPUs.
+> 2. Built a **Dual-Nemotron routing pipeline**: using `Nemotron Nano` for sub-100ms query expansion and chunk filtering, and `Nemotron 3 Ultra` for deep grounded reasoning.
+> 3. Added a new **Deep Compare tool** (`POST /api/compare` and the `/compare` UI page) that generates side-by-side difference matrices and conflict checks across multiple files.
+> 4. Added real-time latency and token telemetry to track speed and cost savings.
+> 5. Created an automated benchmark suite (`benchmark_nebius.py`) proving a **17.2x speedup** and **72% credit savings**."*
 
 ---
 
-## 6. What We Learned & Accomplishments
-- **Tiering is the Future of Cost-Effective AI:** Routing high-frequency utility tasks (query rewriting, categorization, chunk filtering) to a lightweight model like `Nemotron Nano` cuts cost by 72% while actually improving retrieval relevance.
-- **Reliable Guardrails:** Enforcing deterministic citation verification prevents hallucinations and guarantees that users can always trust enterprise responses.
+## 6. What We Learned
+
+- **Small models make big models way cheaper:** Letting a sub-100ms model like `Nemotron Nano` clean up queries and toss out irrelevant chunks saved 72% on our token budget. The bigger model gets better context and answers faster.
+- **Side-by-side comparison is a game changer:** Most enterprise questions aren't just "what is the policy?" — they're "what changed since last year?" Building the `/compare` tab proved to be one of the most useful features in the app.
+- **Strict citations build trust:** Giving users a clickable tag that shows the exact PDF page means they don't have to take the model's word for it.
 
 ---
 
-## 7. Submission Checklist Before Deadline
+## 7. Submission Checklist
+
 - [x] Public repository with MIT License.
-- [x] `NEBIUS_NVIDIA_README.md` explaining Nebius Token Factory setup.
+- [x] `NEBIUS_NVIDIA_README.md` explaining Nebius Token Factory setup and benchmarks.
 - [x] Statement of Significant Updates included in README and Devpost form.
-- [x] Benchmarking suite results documented (`17.2x speedup`, `72% credit savings`).
+- [x] Real benchmark numbers documented (17.2x speedup, 72% credit savings).
 - [x] 3-Minute Demo Video recorded following `DEMO_STORYBOARD.md`.
-- [x] All backend quality gates and frontend builds passing cleanly.
+- [x] Sample documents included under `demo/sample_documents/` for easy judge testing.
+- [x] All backend unit tests and frontend builds passing cleanly.

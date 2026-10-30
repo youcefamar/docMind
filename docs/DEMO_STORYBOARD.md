@@ -1,72 +1,71 @@
-# DocMind x Nebius & NVIDIA Hackathon: 3-Minute Demo Video Storyboard 🎬
+# DocMind 3-Minute Demo Video Storyboard 🎬
 
-> **Total Duration:** Exactly 180 Seconds (3 Minutes Max)  
-> **Resolution:** 1920x1080 (1080p, 60fps)  
-> **Key Themes:** Dual-Nemotron Tiered Architecture, Nebius GPU Speedup (17.2x), Grounded Citations, Deep Document Comparison  
+> **Length:** Exactly 3 Minutes (180 seconds max)  
+> **Resolution:** 1080p, 60fps (Browser zoom at 110% for clear text)  
+> **Key Points:** Two-Tier Nemotron routing, Nebius GPU speed (17.2x faster), Clickable page citations, Side-by-side document comparison  
 
 ---
 
 ## Storyboard Timeline & Cues
 
-### Scene 1: The Problem & The Transformation (0:00 – 0:30)
-- **Screen Display:** Title slide with DocMind logo, Nebius Token Factory badge, and NVIDIA Nemotron branding. Transition to CPU performance bottleneck slide (or split-screen showing slow CPU vs fast GPU).
-- **Spoken Narration (0:00 - 0:30):**  
-  > *"Enterprises are drowning in thousands of multi-page PDFs, policy manuals, and contracts. Traditional RAG systems face a painful dilemma: running locally on CPUs is painfully slow—taking 15 to 30 seconds per question—while spamming monolithic cloud frontier models burns credits and adds high latency.*  
-  > *Meet **DocMind**—re-engineered for the Nebius and NVIDIA Hackathon with a novel **Dual-Nemotron Tiered Architecture** powered by Nebius Token Factory."*
+### Scene 1: The Problem & The Idea (0:00 – 0:30)
+- **Screen Display:** Title slide with DocMind, Nebius Token Factory, and NVIDIA Nemotron. Quick cut to terminal showing slow CPU generation.
+- **Voiceover:**  
+  > *"If you've ever had to dig through a 50-page company policy or figure out what changed between two versions of a contract, you know how painful it is. Running an LLM locally on a laptop takes 15 to 30 seconds for a single question. But sending everything to a massive frontier model burns through API credits and still brings back noisy text.*  
+  > *For this hackathon, we rebuilt DocMind to fix both problems: using a two-tier NVIDIA Nemotron pipeline hosted on Nebius Token Factory."*
 
 ---
 
-### Scene 2: Live Grounded Chat & Verified Citations (0:30 – 1:15)
-- **Screen Display:** Browser on `http://localhost:3000/chat`. Clean, modern DocMind interface.
+### Scene 2: Live Grounded Chat & Clickable Citations (0:30 – 1:15)
+- **Screen Display:** Browser on `http://localhost:3000/chat`.
 - **Action:**
   1. Type question: `"What are our remote work guidelines and leave policies?"`
   2. Click Send.
-  3. Streamed response appears instantly.
-  4. Hover and click on `[S1]` and `[S2]` citation pills to expand the verified source cards showing document filename, page number, and exact matching excerpt.
-- **Spoken Narration (0:30 - 1:15):**  
-  > *"Here is DocMind in action. When an employee asks a natural language question, our Tier 1 router—powered by **NVIDIA Nemotron Nano**—rewrites the query in under 70 milliseconds, injecting optimal search keywords and routing to the right department index.*  
-  > *Our hybrid FAISS and BM25 search retrieves the most relevant context, and **NVIDIA Nemotron 3 Ultra** synthesizes an instant, grounded response.*  
-  > *Notice the citation tags [S1] and [S2]. Every claim is mathematically verified against the source text with exact page provenance—no hallucinations, no invented facts."*
+  3. Response streams in under a second.
+  4. Click on `[S1]` and `[S2]` citation pills to expand the source cards showing document name, page number, and exact text excerpt.
+- **Voiceover:**  
+  > *"Here's DocMind in action. When I ask a question, our Tier 1 router—powered by NVIDIA Nemotron Nano—cleans up the query in about 68 milliseconds. It adds the best keywords for our hybrid FAISS and BM25 search.*  
+  > *Then, NVIDIA Nemotron 3 Ultra synthesizes a clear, grounded answer.*  
+  > *Notice these citation tags: S1 and S2. If you click one, it opens the exact document and page number where that answer came from. If the answer isn't in the docs, DocMind tells you directly instead of guessing or making things up."*
 
 ---
 
-### Scene 3: Agentic "Deep Compare" Cross-Document Synthesis (1:15 – 2:05)
-- **Screen Display:** Click on the new **Compare** tab in the navigation bar (`/compare`).
+### Scene 3: Deep Document Comparison (`/compare`) (1:15 – 2:05)
+- **Screen Display:** Click on the **Compare** tab in the top navigation bar (`/compare`).
 - **Action:**
-  1. Check `DocMind_Enterprise_Policy_2025.txt` and `DocMind_Enterprise_Policy_2026.txt`.
+  1. Check both `DocMind_Enterprise_Policy_2025.txt` and `DocMind_Enterprise_Policy_2026.txt`.
   2. Type focus aspect: `"Remote work, PTO, and equipment allowances"`.
-  3. Click **"Synthesize Cross-Document Matrix"**.
-  4. Watch the structured Markdown report appear with Executive Summary, Key Differences Matrix table, and Risk Assessment.
-- **Spoken Narration (1:15 - 2:05):**  
-  > *"Beyond single-document questions, enterprise teams need cross-document intelligence. Welcome to our new **Deep Document Comparison Engine**.*  
-  > *Here, we select our 2025 and 2026 enterprise policies and ask DocMind to evaluate remote work, PTO, and equipment stipends.*  
-  > *In seconds, Nemotron 3 Ultra reads both multi-page documents and builds a complete executive comparison matrix:*  
-  > *It highlights that remote flexibility expanded from 2 days to 4 days, PTO grew by 66% to 25 days, and equipment stipends upgraded to $1,500 annually.*  
-  > *It even flags timeline contradictions and assigns risk levels for HR compliance."*
+  3. Click **"Compare Documents"**.
+  4. Scroll through the generated output: Executive Summary, Key Differences table, Contradiction Analysis, and Risk Assessment.
+- **Voiceover:**  
+  > *"Now here’s our favorite new feature: Deep Compare.*  
+  > *Instead of manually reading two versions of an employee policy, I can select our 2025 and 2026 files, type what I want to check—like remote work, PTO, and equipment stipends—and hit Compare.*  
+  > *In seconds, Nemotron 3 Ultra reads both documents and builds a side-by-side comparison matrix:*  
+  > *It spots that remote work expanded from 2 days to 4 days, vacation jumped from 15 to 25 days, and the home office stipend tripled to $1,500.*  
+  > *It even flags conflicting deadlines so HR and legal don't get caught off guard."*
 
 ---
 
-### Scene 4: Architecture & Nebius GPU Speedup Benchmark (2:05 – 2:40)
-- **Screen Display:** Split-screen or terminal view showing the telemetry output of `python scripts/benchmark_nebius.py`.
-- **Action:** Highlight the benchmark comparison table in terminal or UI telemetry bar.
-- **Spoken Narration (2:05 - 2:40):**  
-  > *"Under the hood, this speed and intelligence is enabled by Nebius Token Factory.*  
-  > *Our integrated benchmark demonstrates a **17.2x reduction in end-to-end latency** compared to local CPU baselines.*  
-  > *Furthermore, by offloading query reformulation and chunk noise reduction to the sub-100ms Nemotron Nano, we achieve **72% credit savings** compared to sending raw bloated context to frontier models.*  
-  > *Judges can see real-time tokens per second and credit telemetry directly in our API responses."*
+### Scene 4: Under the Hood & Nebius Benchmark (2:05 – 2:40)
+- **Screen Display:** Terminal running `python scripts/benchmark_nebius.py` showing latency, TTFT, and credit savings numbers.
+- **Action:** Highlight the benchmark comparison table.
+- **Voiceover:**  
+  > *"Under the hood, all of this speed comes from Nebius Token Factory.*  
+  > *On our benchmarks, this two-tier setup gave us a 17.2x speedup compared to running locally on CPU—dropping response times from 14 seconds down to 800 milliseconds.*  
+  > *Even better: because Nemotron Nano filters out noisy chunks before calling the bigger model, we cut credit consumption by 72%.*  
+  > *You can even see real-time latency and tokens-per-second directly in the API telemetry."*
 
 ---
 
 ### Scene 5: Conclusion & Open Source Repository (2:40 – 3:00)
-- **Screen Display:** GitHub repository page showing the MIT License, `NEBIUS_NVIDIA_README.md`, and clean code architecture.
-- **Spoken Narration (2:40 - 3:00):**  
-  > *"DocMind is 100% open source under the MIT License, fully containerized, and built on FastAPI and Next.js 16.*  
-  > *By pairing NVIDIA's state-of-the-art open models with Nebius Token Factory's cloud GPU performance, DocMind delivers the future of enterprise knowledge intelligence: fast, grounded, and cost-efficient.*  
-  > *Thank you to the Nebius and NVIDIA teams!"*
+- **Screen Display:** GitHub repository page showing the MIT License, `NEBIUS_NVIDIA_README.md`, and clean project structure.
+- **Voiceover:**  
+  > *"DocMind is 100% open source under the MIT License, built on FastAPI and Next.js 16.*  
+  > *By pairing NVIDIA's open models with Nebius Token Factory's cloud GPUs, we got enterprise search that's fast, cost-efficient, and easy to trust.*  
+  > *Huge thanks to the Nebius and NVIDIA teams for hosting this hackathon!"*
 
 ---
 
-## Recording Tips for the Presenter
-1. **Screen Resolution:** Set browser zoom to 110% so text is crisp on mobile and 1080p.
-2. **Audio:** Use a clean microphone or generate the voiceover using our automated TTS script.
-3. **Pacing:** Keep mouse movements smooth and intentional. Let each card/table hover for at least 1.5 seconds.
+## Presenter Quick Tips
+1. Keep your mouse steady and let each card or table stay visible for at least two seconds so judges can read it.
+2. If you don't want to record live voice, you can use our pre-generated audio tracks in `data/profiling/audio/`.
